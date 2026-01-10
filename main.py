@@ -4,81 +4,98 @@ import os
 import google.generativeai as genai
 import streamlit as st
 
-st.set_page_config(page_title="ImmerShift Engine", layout="wide")
+# IMPORT YOUR BRAIN
+import prompts
 
-# --- SMART API KEY LOADING ---
-# This checks for EITHER name, so it works with your current Secret
+# --- CONFIG ---
+st.set_page_config(page_title="IBE Engine", layout="wide", initial_sidebar_state="expanded")
+
+# --- AUTH ---
 api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
+# --- SIDEBAR ---
 with st.sidebar:
-    st.header("⚡ ImmerShift Engine")
-
-    if api_key:
-        st.success("API Key Auto-Loaded 🔒")
-    else:
-        # Only asks if NO secret is found
-        api_key = st.text_input("Enter API Key", type="password")
-
-    if api_key:
-        try:
-            genai.configure(api_key=api_key)
-        except Exception as e:
-            st.error(f"Key Error: {e}")
-
-# --- APP INTERFACE ---
-st.title("Immersify: 8-Pillar Brand Engine")
-
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.subheader("1. Discovery Input")
-    client_name = st.text_input("Client Name")
-    raw_notes = st.text_area("Discovery Notes", height=300)
-    generate_btn = st.button("Generate Strategy", type="primary")
-
-def get_system_prompt():
-    return """You are a Strategic Brand Consultant. Output valid JSON only.
-    Structure: {"executive_summary": "...", "modules": {"1_core_story": "...", "2_visual_identity": "...", "3_product_experience": "...", "4_market_plan": "...", "5_tech_accessibility": "...", "6_brand_activation": "...", "7_team_branding": "...", "8_security_trust": "..."}}"""
-
-if generate_btn:
+    st.header("⚡ IBE Engine")
+    st.caption("v2.0 | Modular Architecture")
     if not api_key:
-        st.error("❌ API Key missing. Check Replit Secrets.")
-    elif not raw_notes:
-        st.error("❌ Please enter notes.")
+        api_key = st.text_input("API Key Required", type="password")
     else:
-        with col2:
-            st.subheader("2. Strategic Output")
-            status = st.info("Thinking...")
-            try:
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                full_prompt = f"{get_system_prompt()}\nCLIENT: {client_name}\nNOTES: {raw_notes}"
+        st.success("System Online 🟢")
+        genai.configure(api_key=api_key)
 
-                response = model.generate_content(full_prompt)
-                clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                data = json.loads(clean_json)
+# --- MAIN LAYOUT ---
+c1, c2, c3 = st.columns([2, 1, 1])
+with c1: st.title("IBE Strategy Generator")
+with c2: brand_tone = st.selectbox("Tone", ["Premium & Minimalist", "Bold & Disruptive", "Warm & Community", "Corporate"], label_visibility="collapsed")
+with c3: language = st.radio("Language", ["English", "Indonesian"], horizontal=True, label_visibility="collapsed")
 
-                status.success("Done!")
+st.divider()
 
-                tabs = st.tabs(["Overview", "Brand Core", "Experience", "Growth", "Raw"])
+left_col, right_col = st.columns([1, 1])
 
-                with tabs[0]:
-                    st.write(data.get('executive_summary'))
+# --- INPUT ---
+with left_col:
+    st.subheader("1. Briefing")
+    client_name = st.text_input("Project Name", placeholder="e.g. Kopi Mellow")
+    raw_notes = st.text_area("Discovery Notes", height=450)
+    generate_btn = st.button("🚀 Generate Strategy", type="primary", use_container_width=True)
 
-                # Grouping for cleaner code
-                mods = data.get('modules', {})
-                with tabs[1]:
-                    st.markdown("#### 1. Core Story"); st.write(mods.get('1_core_story'))
-                    st.markdown("#### 2. Visuals"); st.write(mods.get('2_visual_identity'))
-                with tabs[2]:
-                    st.markdown("#### 3. Product"); st.write(mods.get('3_product_experience'))
-                    st.markdown("#### 5. Tech"); st.write(mods.get('5_tech_accessibility'))
-                    st.markdown("#### 8. Security"); st.write(mods.get('8_security_trust'))
-                with tabs[3]:
-                    st.markdown("#### 4. Market"); st.write(mods.get('4_market_plan'))
-                    st.markdown("#### 6. Activation"); st.write(mods.get('6_brand_activation'))
-                    st.markdown("#### 7. Team"); st.write(mods.get('7_team_branding'))
-                with tabs[4]: st.json(data)
+# --- OUTPUT ---
+with right_col:
+    st.subheader("2. Strategy Output")
 
-            except Exception as e:
-                st.error(f"Error: {e}")
-                st.text(response.text if 'response' in locals() else "No response")
+    if generate_btn:
+        if not api_key or not raw_notes:
+            st.error("Check API Key and Notes.")
+            st.stop()
+
+        status = st.info(f"🧠 Architects are working on {client_name}...")
+
+        try:
+            # 1. LOAD THE BRAIN FROM PROMPTS.PY
+            system_prompt = prompts.get_system_prompt(brand_tone, language)
+
+            # 2. RUN AI
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            full_prompt = f"{system_prompt}\n\nCLIENT: {client_name}\nNOTES: {raw_notes}"
+            response = model.generate_content(full_prompt)
+
+            # 3. PARSE
+            clean_json = response.text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+
+            status.empty()
+
+            # 4. DOWNLOAD BUTTON (New Feature)
+            st.download_button(
+                label="📥 Download Strategy (JSON)",
+                data=json.dumps(data, indent=4),
+                file_name=f"{client_name}_Strategy.json",
+                mime="application/json",
+                use_container_width=True
+            )
+
+            # 5. DISPLAY TABS
+            tabs = st.tabs(["Summary", "1-2 Core/Visual", "3-5 Exp/Tech", "4-6 Mkt/Act", "7-8 Team/Trust"])
+            mods = data.get('modules', {})
+
+            with tabs[0]: st.write(data.get('executive_summary'))
+            with tabs[1]:
+                st.markdown("#### 1. BRAND CORE"); st.write(mods.get('1_core_story'))
+                st.divider()
+                st.markdown("#### 2. VISUAL IDENTITY"); st.write(mods.get('2_visual_identity'))
+            with tabs[2]:
+                st.markdown("#### 3. PRODUCT EXP"); st.write(mods.get('3_product_experience'))
+                st.divider()
+                st.markdown("#### 5. DIGITAL INTEG"); st.write(mods.get('5_tech_accessibility'))
+            with tabs[3]:
+                st.markdown("#### 4. MARKET PLAN"); st.write(mods.get('4_market_plan'))
+                st.divider()
+                st.markdown("#### 6. ACTIVATION"); st.write(mods.get('6_brand_activation'))
+            with tabs[4]:
+                st.markdown("#### 7. TEAM"); st.write(mods.get('7_team_branding'))
+                st.divider()
+                st.markdown("#### 8. TRUST"); st.write(mods.get('8_security_trust'))
+
+        except Exception as e:
+            st.error(f"Error: {e}")
