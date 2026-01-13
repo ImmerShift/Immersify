@@ -18,8 +18,8 @@ st.set_page_config(page_title="IBE Engine - Immersify",
 st.markdown("""
     <style>
     .stTextArea textarea {
-        background-color: #1e1e1e !important;
-        color: #e0e0e0 !important;
+        background-color: transparent !important;
+        color: inherit !important;
         border: 1px solid #333 !important;
         border-radius: 4px !important;
         font-family: 'Inter', sans-serif !important;
