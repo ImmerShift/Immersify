@@ -90,11 +90,11 @@ export default function MainQuestionnaire({ questionnaire }) {
       <Tabs defaultValue="brand_core" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto h-auto p-1 bg-white border">
           <TabsTrigger value="brand_core">Brand Core</TabsTrigger>
-          <TabsTrigger value="visual">Visual</TabsTrigger>
-          <TabsTrigger value="product">Product</TabsTrigger>
-          <TabsTrigger value="verbal">Verbal</TabsTrigger>
-          <TabsTrigger value="market">Market</TabsTrigger>
-          <TabsTrigger value="tech">Tech</TabsTrigger>
+          <TabsTrigger value="visual">Visual Identity</TabsTrigger>
+          <TabsTrigger value="product">Product Experience</TabsTrigger>
+          <TabsTrigger value="verbal">Verbal Identity</TabsTrigger>
+          <TabsTrigger value="market">Market Plan</TabsTrigger>
+          <TabsTrigger value="tech">Technology</TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
