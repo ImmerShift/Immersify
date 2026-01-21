@@ -58,7 +58,7 @@ export default function QuestionField({
           className="min-h-[120px] bg-orange-50/30 border-orange-100 focus-visible:ring-orange-200 resize-none"
         />
 
-        {tips.length > 0 && (
+        {tips.length > 0 && !enableAIFeedback && (
           <div className="mt-4 p-4 bg-blue-50/30 rounded-md border border-blue-50">
             <div className="flex items-center gap-2 mb-2 text-slate-600">
               <Lightbulb className="w-4 h-4" />
