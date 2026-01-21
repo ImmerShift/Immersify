@@ -8,6 +8,7 @@ import { api } from '@/api/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils/navigation';
+import { cn } from '@/lib/utils';
 
 // Import Sections
 import BrandCoreSection from './sections/BrandCoreSection';
@@ -31,7 +32,6 @@ export default function MainQuestionnaire({ questionnaire }) {
   const tier = questionnaire?.maturity_tier || 'Seed';
   const tierData = tierInfo[tier];
 
-  // Auto-save logic could go here, for now we use manual save
   const handleResponseChange = (section, subsection, field, value) => {
     setResponses(prev => ({
       ...prev,
