@@ -69,18 +69,20 @@ export default function MainQuestionnaire({ questionnaire }) {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Brand Audit</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Brand Audit Questionnaire</h1>
           <div className="flex items-center gap-2 mt-2">
-            <Badge className={tierData.color}>{tierData.emoji} {tier} Tier</Badge>
-            <span className="text-sm text-slate-500">Fill in the sections to analyze your brand health.</span>
+            <Badge className={cn("rounded px-2 py-0.5 border-none", tierData.color)}>
+              {tierData.emoji} {tier} Tier
+            </Badge>
+            <Button variant="outline" size="xs" className="h-7 text-[10px] font-semibold border-slate-200" onClick={() => navigate('/')}>
+              <TrendingUp className="w-3 h-3 mr-1" /> Retake Assessment
+            </Button>
           </div>
+          <p className="text-xs text-slate-500 mt-3 font-medium">Focus on foundational questions to build your brand core</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={isSaving}>
-            <Save className="w-4 h-4 mr-2" /> Save
-          </Button>
-          <Button onClick={() => handleSave(true)} disabled={isSaving}>
-            <TrendingUp className="w-4 h-4 mr-2" /> Analyze Health
+          <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-md px-6" onClick={() => handleSave(false)} disabled={isSaving}>
+            <Save className="w-4 h-4 mr-2" /> Save Progress
           </Button>
         </div>
       </div>
