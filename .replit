@@ -34,6 +34,7 @@ externalPort = 5000
 
 [nix]
 packages = ["psmisc"]
+channel = "stable-25_05"
 
 [agent]
 expertMode = true
