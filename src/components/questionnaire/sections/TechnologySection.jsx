@@ -20,6 +20,7 @@ export default function TechnologySection({ tier, responses, onChange }) {
                 rating={responses.digital_presence?.website_rating}
                 onRatingChange={(val) => onChange('digital_presence', 'website_rating', val)}
                 fieldKey="digital_presence.website"
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="Is your website optimized for mobile devices?"

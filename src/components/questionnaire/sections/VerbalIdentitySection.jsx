@@ -53,6 +53,7 @@ export default function VerbalIdentitySection({ tier, responses, onChange }) {
                 rating={responses.messaging?.tagline_rating}
                 onRatingChange={(val) => onChange('messaging', 'tagline_rating', val)}
                 fieldKey="messaging.tagline"
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="What are your 3-5 key brand messages?"

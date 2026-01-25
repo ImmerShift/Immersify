@@ -37,6 +37,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.golden_circle?.how_rating}
                 onRatingChange={(val) => onChange('golden_circle', 'how_rating', val)}
                 fieldKey="golden_circle.how_response"
+                enableAIFeedback={true}
                 tips={[
                   "What makes your process different?",
                   "What's your secret sauce?"
@@ -50,6 +51,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.golden_circle?.what_rating}
                 onRatingChange={(val) => onChange('golden_circle', 'what_rating', val)}
                 fieldKey="golden_circle.what_response"
+                enableAIFeedback={true}
                 tips={[
                   "List your main offerings",
                   "What problems do they solve?"
@@ -71,6 +73,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.purpose?.mission_rating}
                 onRatingChange={(val) => onChange('purpose', 'mission_rating', val)}
                 fieldKey="purpose.mission"
+                enableAIFeedback={true}
                 tips={[
                   "What do you do daily to fulfill your purpose?",
                   "Who do you serve?"
@@ -84,6 +87,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.purpose?.vision_rating}
                 onRatingChange={(val) => onChange('purpose', 'vision_rating', val)}
                 fieldKey="purpose.vision"
+                enableAIFeedback={true}
                 tips={[
                   "Where do you see your brand in 10 years?",
                   "What's the ultimate goal?"
@@ -97,6 +101,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.purpose?.promise_rating}
                 onRatingChange={(val) => onChange('purpose', 'promise_rating', val)}
                 fieldKey="purpose.promise"
+                enableAIFeedback={true}
                 tips={[
                   "What can customers always expect from you?",
                   "What commitment do you make?"
@@ -150,6 +155,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.positioning?.target_audience_rating}
                 onRatingChange={(val) => onChange('positioning', 'target_audience_rating', val)}
                 fieldKey="positioning.target_audience"
+                enableAIFeedback={true}
                 tips={[
                   "Describe demographics, psychographics",
                   "What are their pain points?",
@@ -164,6 +170,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.positioning?.differentiation_rating}
                 onRatingChange={(val) => onChange('positioning', 'differentiation_rating', val)}
                 fieldKey="positioning.differentiation"
+                enableAIFeedback={true}
                 tips={[
                   "What do competitors lack?",
                   "Why choose you over alternatives?"
@@ -177,6 +184,7 @@ export default function BrandCoreSection({ tier, responses, onChange }) {
                 rating={responses.positioning?.uvp_rating}
                 onRatingChange={(val) => onChange('positioning', 'uvp_rating', val)}
                 fieldKey="positioning.uvp"
+                enableAIFeedback={true}
                 tips={[
                   "In one sentence, why should customers buy from you?"
                 ]}

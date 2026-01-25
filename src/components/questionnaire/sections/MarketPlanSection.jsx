@@ -20,6 +20,7 @@ export default function MarketPlanSection({ tier, responses, onChange }) {
                 rating={responses.research?.competitors_rating}
                 onRatingChange={(val) => onChange('research', 'competitors_rating', val)}
                 fieldKey="research.competitors"
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="What market trends are impacting your industry?"

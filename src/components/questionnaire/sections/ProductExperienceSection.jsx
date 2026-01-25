@@ -20,6 +20,7 @@ export default function ProductExperienceSection({ tier, responses, onChange }) 
                 rating={responses.core_offering?.description_rating}
                 onRatingChange={(val) => onChange('core_offering', 'description_rating', val)}
                 fieldKey="core_offering.description"
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="How does your product/service align with your brand promise?"
