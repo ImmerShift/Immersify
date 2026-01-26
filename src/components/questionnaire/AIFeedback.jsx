@@ -45,7 +45,7 @@ const feedbackPrompts = {
   }
 };
 
-export default function AIFeedback({ fieldKey, value, onChange }) {
+export default function AIFeedback({ fieldKey, value, onChange, context: label }) {
   const [feedback, setFeedback] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalyzedValue, setLastAnalyzedValue] = useState('');
@@ -55,9 +55,9 @@ export default function AIFeedback({ fieldKey, value, onChange }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       // Debounce: Analyze only after user stops typing for 1.5s
-      if (value && value.length > 15 && value !== lastAnalyzedValue) {
+      if (value && value.length > 5 && value !== lastAnalyzedValue) {
         analyzeInput();
-      } else if (!value || value.length < 15) {
+      } else if (!value || value.length < 5) {
         setFeedback(null);
       }
     }, 1500);
@@ -70,9 +70,7 @@ export default function AIFeedback({ fieldKey, value, onChange }) {
     try {
       // Calls your new Replit Backend
       // The backend parses this string to extract context and value
-      const result = await api.ai.invoke({
-        prompt: `Analyze this user input for their ${config.context}. User's response: "${value}"`
-      });
+      const result = await api.ai.feedback(value, label || config.context);
 
       setFeedback(result);
       setLastAnalyzedValue(value);
@@ -83,7 +81,7 @@ export default function AIFeedback({ fieldKey, value, onChange }) {
     }
   };
 
-  if (!value || value.length < 15) {
+  if (!value || value.length < 5) {
     return (
       <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
         <div className="flex items-start gap-2 text-slate-500 text-xs">

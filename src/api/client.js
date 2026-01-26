@@ -45,6 +45,14 @@ export const api = {
 
   ai: {
     // Determine if we need simple feedback or full analysis
+    feedback: async (value, context) => {
+      const res = await fetch('/api/ai/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value, context })
+      });
+      return res.json();
+    },
     invoke: async ({ prompt }) => {
       const isAnalysis = prompt.includes("Brand Maturity Tier");
       const endpoint = isAnalysis ? '/api/ai/analyze' : '/api/ai/feedback';

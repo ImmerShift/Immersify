@@ -23,7 +23,8 @@ app.use('/uploads', express.static('uploads'));
 // --- AI CONFIGURATION (GEMINI) ---
 // Make sure GEMINI_API_KEY is in Secrets
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// Using 'gemini-1.5-flash-latest' to ensure we get the most up-to-date version
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 // Helper to clean JSON from Markdown
 const cleanJSON = (text) => {
@@ -119,7 +120,8 @@ app.post('/api/ai/feedback', async (req, res) => {
     `;
 
     const result = await model.generateContent(prompt);
-    const text = cleanJSON(result.response.text());
+    const response = await result.response;
+    const text = cleanJSON(response.text());
 
     res.json(JSON.parse(text));
   } catch (err) {
@@ -159,7 +161,8 @@ app.post('/api/ai/analyze', async (req, res) => {
     `;
 
     const result = await model.generateContent(prompt);
-    const text = cleanJSON(result.response.text());
+    const response = await result.response;
+    const text = cleanJSON(response.text());
     const analysis = JSON.parse(text);
 
     res.json(analysis);

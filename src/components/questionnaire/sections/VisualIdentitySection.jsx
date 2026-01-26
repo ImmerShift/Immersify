@@ -45,6 +45,7 @@ export default function VisualIdentitySection({ tier, responses, onChange }) {
                 onRatingChange={(val) => onChange('logo', 'description_rating', val)}
                 fieldKey="logo.description"
                 placeholder="What symbols, shapes, or imagery does your logo use? What meaning does it convey?"
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="Do you have logo variations for different contexts? (dark/light backgrounds, minimum sizes, etc.)"
@@ -84,6 +85,7 @@ export default function VisualIdentitySection({ tier, responses, onChange }) {
                 onRatingChange={(val) => onChange('colors', 'emotions_rating', val)}
                 fieldKey="colors.emotions"
                 placeholder="E.g., Trust and professionalism (blue). Energy and excitement (orange). Nature and growth (green)."
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="Are color usage guidelines documented and consistently applied?"
@@ -117,6 +119,7 @@ export default function VisualIdentitySection({ tier, responses, onChange }) {
                 onRatingChange={(val) => onChange('typography', 'communication_rating', val)}
                 fieldKey="typography.communication"
                 placeholder="E.g., We chose Montserrat for its modern, geometric feel that reflects our innovative approach"
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="Are font hierarchy and usage rules documented?"
@@ -151,6 +154,7 @@ export default function VisualIdentitySection({ tier, responses, onChange }) {
                 onRatingChange={(val) => onChange('imagery', 'style_rating', val)}
                 fieldKey="imagery.style"
                 placeholder="E.g., Bright lifestyle photography with real people, minimalist product shots, hand-drawn illustrations."
+                enableAIFeedback={true}
               />
               <QuestionField
                 label="Do you have a consistent approach to imagery across all touchpoints?"
