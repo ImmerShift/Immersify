@@ -1,19 +1,23 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import QuestionnairePage from '@/pages/QuestionnairePage';
-import BrandHealthPage from '@/pages/BrandHealthPage';
-import { Toaster } from '@/components/ui/sonner';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import Settings from './pages/Settings';
+import Questionnaire from './pages/Questionnaire';
+import Strategy from './pages/Strategy';
 
 function App() {
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<Navigate to="/questionnaire" replace />} />
-        <Route path="/questionnaire" element={<QuestionnairePage />} />
-        <Route path="/brandhealth" element={<BrandHealthPage />} />
-      </Routes>
-      <Toaster />
-    </>
+    <Router>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/questionnaire" element={<Questionnaire />} />
+          <Route path="/strategy" element={<Strategy />} />
+        </Routes>
+      </Layout>
+    </Router>
   );
 }
 

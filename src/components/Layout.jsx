@@ -1,77 +1,57 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { createPageUrl } from '@/utils/navigation';
-import { Button } from '@/components/ui/button';
-import { api } from '@/api/client';
-import { 
-  ClipboardList, 
-  TrendingUp, 
-  LogOut,
-  Sparkles
-} from 'lucide-react';
+import { Toaster } from "@/components/ui/toaster"
 
-const navItems = [
-  { name: 'Questionnaire', label: 'Brand Audit', icon: ClipboardList },
-  { name: 'BrandHealth', label: 'Brand Health', icon: TrendingUp },
-];
-
-export default function Layout({ children }) {
+const Layout = ({ children }) => {
   const location = useLocation();
-  const currentPageName = location.pathname.substring(1) || 'Questionnaire';
 
-  const handleLogout = () => {
-    api.auth.logout();
-  };
+  const navItems = [
+    { path: '/', label: 'Home' },
+    { path: '/settings', label: 'Settings' },
+    { path: '/questionnaire', label: 'Brand Audit' },
+    { path: '/strategy', label: 'IBE Strategy' },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link to={createPageUrl('Questionnaire')} className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-sm">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-slate-900">
-                Immersify
-              </span>
-            </Link>
-
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center gap-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                // Simple check for active state based on URL
-                const isActive = location.pathname.toLowerCase().includes(item.name.toLowerCase());
-                return (
-                  <Link key={item.name} to={createPageUrl(item.name)}>
-                    <Button
-                      variant={isActive ? 'default' : 'ghost'}
-                      className={isActive ? '' : 'text-slate-600'}
-                    >
-                      <Icon className="w-4 h-4 mr-2" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* Logout */}
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-500">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <Link to="/" className="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+            ✨ Immersify
+          </Link>
+          
+          <nav className="hidden md:flex gap-6">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`text-sm font-medium transition-colors hover:text-indigo-600 ${
+                  location.pathname === item.path ? 'text-indigo-600' : 'text-slate-600'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container mx-auto px-4 py-8">
         {children}
       </main>
+
+      {/* Footer */}
+      <footer className="bg-slate-900 text-slate-400 py-8 mt-12">
+        <div className="container mx-auto px-4 text-center">
+          <p>&copy; 2026 Immersify AI. All rights reserved.</p>
+          <p className="text-xs mt-2">Powered by Gemini &bull; Built for Brand Builders</p>
+        </div>
+      </footer>
+      <Toaster />
     </div>
   );
-}
+};
+
+export default Layout;
