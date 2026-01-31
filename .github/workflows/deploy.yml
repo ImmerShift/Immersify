@@ -19,6 +19,7 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
+        # Using npm install without lockfile since we are in a no-node environment
         run: npm install
 
       - name: Build
