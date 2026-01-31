@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Questionnaire from './pages/Questionnaire';
 import Strategy from './pages/Strategy';
+import BrandHealth from './pages/BrandHealth';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/questionnaire" element={<Questionnaire />} />
+          <Route path="/brand-health" element={<BrandHealth />} />
           <Route path="/strategy" element={<Strategy />} />
         </Routes>
       </Layout>

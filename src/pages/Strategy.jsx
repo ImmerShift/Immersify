@@ -38,7 +38,7 @@ const Strategy = () => {
         currentStore.apiKey,
         currentStore.answers.company_name,
         currentStore.answers,
-        ['brand_core', 'visual_identity', 'verbal_identity', 'digital_presence'] // Generating top 4 for demo
+        ['brand_core', 'visual', 'product', 'market', 'tech', 'brand_activation', 'team_branding', 'security_trust']
       );
       setStrategy(result);
       updateStore({ strategy: result });
@@ -91,92 +91,56 @@ const Strategy = () => {
       </div>
 
       <div className="grid gap-8">
-        {/* Brand Core */}
-        {strategy.brand_core && (
-          <section className="space-y-4">
-            <h2 className="text-2xl font-semibold text-indigo-700 border-b pb-2">1. Brand Core</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Mission</CardTitle></CardHeader>
-                <CardContent>{strategy.brand_core.mission || "N/A"}</CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Vision</CardTitle></CardHeader>
-                <CardContent>{strategy.brand_core.vision || "N/A"}</CardContent>
-              </Card>
-              <Card className="md:col-span-2">
-                <CardHeader><CardTitle className="text-lg">Core Values</CardTitle></CardHeader>
-                <CardContent>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {Array.isArray(strategy.brand_core.values) 
-                      ? strategy.brand_core.values.map((v, i) => <li key={i}>{v}</li>)
-                      : <li>{strategy.brand_core.values}</li>
-                    }
-                  </ul>
+        {Object.entries(strategy).map(([key, section]) => {
+           // Map keys to readable titles
+           const titles = {
+             brand_core: "Brand Core Story & Ideation",
+             visual: "Visual Identity",
+             product: "Product Experience",
+             market: "Market Plan",
+             tech: "Technology & Accessibility",
+             brand_activation: "Brand Activation",
+             team_branding: "Team Branding",
+             security_trust: "Security & Trust"
+           };
+           
+           return (
+            <section key={key} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h2 className="text-2xl font-semibold text-indigo-700 border-b pb-2 flex items-center gap-2">
+                {titles[key] || key}
+              </h2>
+              
+              {/* Analysis */}
+              <Card className="bg-slate-50 border-none">
+                <CardContent className="pt-6">
+                  <p className="text-slate-700 italic">"{section.analysis}"</p>
                 </CardContent>
               </Card>
-            </div>
-          </section>
-        )}
 
-        {/* Visual Identity */}
-        {strategy.visual_identity && (
-          <section className="space-y-4">
-            <h2 className="text-2xl font-semibold text-indigo-700 border-b pb-2">2. Visual Identity</h2>
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div>
-                  <h4 className="font-semibold">Logo Concept</h4>
-                  <p className="text-slate-600">{strategy.visual_identity.logo_concept || strategy.visual_identity.logo_suggestion}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Color Palette</h4>
-                  <p className="text-slate-600">{strategy.visual_identity.color_palette || "N/A"}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Typography</h4>
-                  <p className="text-slate-600">{strategy.visual_identity.typography || "N/A"}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        )}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Recommendations */}
+                <Card>
+                  <CardHeader><CardTitle className="text-lg text-indigo-900">Strategic Actions</CardTitle></CardHeader>
+                  <CardContent>
+                    <ul className="list-disc pl-5 space-y-2 text-slate-600">
+                      {section.recommendations?.map((rec, i) => (
+                        <li key={i}>{rec}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
 
-        {/* Verbal Identity */}
-        {strategy.verbal_identity && (
-          <section className="space-y-4">
-            <h2 className="text-2xl font-semibold text-indigo-700 border-b pb-2">3. Verbal Identity</h2>
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div>
-                  <h4 className="font-semibold">Tone of Voice</h4>
-                  <p className="text-slate-600">{strategy.verbal_identity.tone_of_voice}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Taglines</h4>
-                  <ul className="list-disc pl-5 text-slate-600">
-                    {Array.isArray(strategy.verbal_identity.taglines) 
-                      ? strategy.verbal_identity.taglines.map((t, i) => <li key={i}>{t}</li>)
-                      : <li>{strategy.verbal_identity.taglines}</li>
-                    }
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
-         {/* Digital Presence */}
-         {strategy.digital_presence && (
-          <section className="space-y-4">
-            <h2 className="text-2xl font-semibold text-indigo-700 border-b pb-2">4. Digital Presence</h2>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-slate-600 whitespace-pre-wrap">{JSON.stringify(strategy.digital_presence, null, 2).replace(/"|{|}/g, '')}</p>
-              </CardContent>
-            </Card>
-          </section>
-        )}
+                {/* Creative Idea */}
+                <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-100">
+                  <CardHeader><CardTitle className="text-lg text-indigo-600">Creative Spark ✨</CardTitle></CardHeader>
+                  <CardContent>
+                    <p className="text-lg font-medium text-slate-800">{section.creative_idea}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+           );
+        })}
       </div>
     </div>
   );
