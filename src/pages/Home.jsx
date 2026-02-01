@@ -1,18 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getStore } from '@/lib/store';
-import { calculateBrandHealth } from '@/lib/utils';
+import { useStore } from '@/lib/store';
+import { calculateBrandHealth, calculatePillarScore } from '@/lib/utils';
+import { calculateTreeState } from '@/lib/visualizers';
 import { generatePDFReport } from '@/lib/pdfGenerator';
 import { ArrowRight, CheckCircle2, Circle, Download, Eye, Sparkles } from 'lucide-react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { SECTIONS } from '@/lib/constants';
 
 const Home = () => {
-  const [store, setStore] = useState(null);
-  const [health, setHealth] = useState(null);
-  const [brandLevel, setBrandLevel] = useState(null);
+  const store = useStore((state) => state);
+  const health = useMemo(() => calculateBrandHealth(store?.ratings || {}), [store?.ratings]);
+  const brandLevel = store?.brandLevel || null;
   const navigate = useNavigate();
   const ladderContainerRef = useRef(null);
   const ladderSceneRef = useRef(null);
@@ -27,25 +29,10 @@ const Home = () => {
   const prevCompletedRef = useRef(0);
   const stepsRef = useRef([]);
   const activeIndexRef = useRef(0);
-
-  useEffect(() => {
-    const refresh = () => {
-      const data = getStore();
-      setStore(data);
-      setBrandLevel(data.brandLevel || null);
-      if (data.ratings) {
-        setHealth(calculateBrandHealth(data.ratings));
-      } else {
-        setHealth(null);
-      }
-    };
-
-    refresh();
-    window.addEventListener('focus', refresh);
-    return () => window.removeEventListener('focus', refresh);
-  }, []);
-
-  if (!store) return null;
+  const treeGroupRef = useRef(null);
+  const canopyRefs = useRef([]);
+  const fruitGroupsRef = useRef([]);
+  const keyLightRef = useRef(null);
 
   const getTierColor = (tier) => {
     switch(tier) {
@@ -61,74 +48,50 @@ const Home = () => {
 
   const answers = store?.answers || {};
   const ratings = store?.ratings || {};
-  const hasText = (id) => typeof answers[id] === 'string' && answers[id].trim() !== '';
+  const visualState = useMemo(() => calculateTreeState(store || {}), [store?.answers, store?.ratings, store?.brandLevel]);
+  const activationInsight = useMemo(
+    () => calculatePillarScore('brand_activation', answers, ratings, displayTier),
+    [answers, ratings, displayTier]
+  );
+  const securityInsight = useMemo(
+    () => calculatePillarScore('security_trust', answers, ratings, displayTier),
+    [answers, ratings, displayTier]
+  );
 
-  const steps = useMemo(() => ([
-    {
-      id: 'brand-core',
-      title: 'Brand Core Story',
-      description: 'Define your why and core story.',
-      tab: 'brand_core',
-      tier: 'Seed',
-      completed: hasText('core_why') && hasText('core_how') && hasText('core_what')
-    },
-    {
-      id: 'visual',
-      title: 'Visual Identity',
-      description: 'Shape how the brand is seen.',
-      tab: 'visual',
-      tier: 'Seed',
-      completed: !!answers.logo_upload && (!!answers.colors_primary || !!answers.colors_secondary)
-    },
-    {
-      id: 'product',
-      title: 'Product Experience',
-      description: 'Deliver the promise in reality.',
-      tab: 'product',
-      tier: 'Sprout',
-      completed: hasText('prod_desc') && hasText('prod_standard')
-    },
-    {
-      id: 'market',
-      title: 'Market Plan',
-      description: 'Know your target and channels.',
-      tab: 'market',
-      tier: 'Sprout',
-      completed: hasText('market_target') && hasText('market_goal')
-    },
-    {
-      id: 'tech',
-      title: 'Technology & Access',
-      description: 'Make the brand easy to reach.',
-      tab: 'tech',
-      tier: 'Star',
-      completed: hasText('tech_find') && hasText('tech_order')
-    },
-    {
-      id: 'brand-activation',
-      title: 'Brand Activation',
-      description: 'Create real-world buzz.',
-      tab: 'brand_activation',
-      tier: 'Star',
-      completed: hasText('activation_first_buzz') || hasText('activation_hook')
-    },
-    {
-      id: 'team-branding',
-      title: 'Team Branding',
-      description: 'People deliver the brand.',
-      tab: 'team_branding',
-      tier: 'Star',
-      completed: hasText('team_attitude') && hasText('team_greeting')
-    },
-    {
-      id: 'security-trust',
-      title: 'Security & Trust',
-      description: 'Protect reliability and ethics.',
-      tab: 'security_trust',
-      tier: 'Superbrand',
-      completed: hasText('trust_signal') && hasText('trust_promise')
+  const pillarLabels = {
+    brand_core: 'Brand Core',
+    visual_identity: 'Visual Identity',
+    product_experience: 'Product Experience',
+    market_plan: 'Market Plan',
+    technology: 'Technology',
+    brand_activation: 'Brand Activation',
+    team_branding: 'Team Branding',
+    security_trust: 'Security & Trust'
+  };
+
+  const isAnswered = (question) => {
+    if (question.type === 'rating') {
+      return !!ratings[question.id];
     }
-  ]), [answers, health, ratings]);
+    const value = answers[question.id];
+    if (typeof value === 'string') return value.trim() !== '';
+    return !!value;
+  };
+
+  const steps = useMemo(() => (
+    Object.entries(SECTIONS).map(([pillarKey, questions]) => {
+      const answeredCount = questions.filter(isAnswered).length;
+      const completion = questions.length ? answeredCount / questions.length : 0;
+      return {
+        id: pillarKey,
+        title: pillarLabels[pillarKey] || pillarKey,
+        description: 'Complete this pillar to grow the tree.',
+        tab: pillarKey,
+        tier: questions[0]?.tier || 'Seed',
+        completed: completion >= 0.8
+      };
+    })
+  ), [answers, ratings]);
 
   const currentIndex = Math.max(0, steps.findIndex((step) => !step.completed));
   const activeIndex = currentIndex === -1 ? steps.length - 1 : currentIndex;
@@ -148,48 +111,48 @@ const Home = () => {
     const container = ladderContainerRef.current;
     if (!container) return;
 
-    const tierColors = {
-      Seed: 0x6366f1,
-      Sprout: 0x22c55e,
-      Star: 0xf59e0b,
-      Superbrand: 0xef4444
-    };
-
     const createLabelSprite = (text) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      const fontSize = 48;
+      const fontSize = 40;
       canvas.width = 512;
       canvas.height = 128;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.fillStyle = 'rgba(15, 23, 42, 0.8)';
-      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      context.beginPath();
+      context.roundRect(16, 16, canvas.width - 32, canvas.height - 32, 32);
+      context.fill();
       context.fillStyle = '#f8fafc';
-      context.font = `bold ${fontSize}px Inter, sans-serif`;
+      context.font = `600 ${fontSize}px Inter, sans-serif`;
       context.textAlign = 'center';
       context.textBaseline = 'middle';
-      context.fillText(text, canvas.width / 2, canvas.height / 2);
+      context.fillText(text, canvas.width / 2, canvas.height / 2 + 4);
       const texture = new THREE.CanvasTexture(canvas);
       texture.needsUpdate = true;
+      texture.colorSpace = THREE.SRGBColorSpace;
       const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
       const sprite = new THREE.Sprite(material);
-      sprite.scale.set(2.6, 0.65, 1);
+      sprite.scale.set(2.4, 0.55, 1);
       return sprite;
     };
 
     const initScene = () => {
       const scene = new THREE.Scene();
-      scene.background = null;
+      scene.background = new THREE.Color(visualState.environment.skyColor);
+      scene.fog = new THREE.Fog(visualState.environment.skyColor, 8, 22);
       const width = container.clientWidth || 600;
       const height = container.clientHeight || 320;
 
-      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-      camera.position.set(6, 6, 10);
-      camera.lookAt(0, 0, 0);
+      const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 60);
+      camera.position.set(7.2, 6.2, 9.4);
+      camera.lookAt(0, 2, 0);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
@@ -198,91 +161,130 @@ const Home = () => {
       controls.enableDamping = true;
       controls.enablePan = false;
       controls.minDistance = 6;
-      controls.maxDistance = 16;
-      controls.maxPolarAngle = Math.PI / 2.1;
-      controls.minPolarAngle = Math.PI / 4;
+      controls.maxDistance = 12;
+      controls.maxPolarAngle = Math.PI / 2.2;
+      controls.minPolarAngle = Math.PI / 4.6;
 
-      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+      const ambient = new THREE.AmbientLight(0xffffff, 0.45);
       scene.add(ambient);
-      const directional = new THREE.DirectionalLight(0xffffff, 1.1);
-      directional.position.set(5, 10, 4);
-      directional.castShadow = true;
-      directional.shadow.mapSize.set(1024, 1024);
-      scene.add(directional);
+      const hemisphere = new THREE.HemisphereLight(0xc7d2fe, 0x1f2937, 0.6);
+      scene.add(hemisphere);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      keyLight.position.set(6, 9, 6);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(1024, 1024);
+      keyLight.shadow.camera.near = 1;
+      keyLight.shadow.camera.far = 20;
+      keyLight.shadow.camera.left = -8;
+      keyLight.shadow.camera.right = 8;
+      keyLight.shadow.camera.top = 8;
+      keyLight.shadow.camera.bottom = -8;
+      scene.add(keyLight);
+      keyLightRef.current = keyLight;
+      const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.5);
+      rimLight.position.set(-6, 6, -4);
+      scene.add(rimLight);
 
-      const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(40, 40),
-        new THREE.MeshStandardMaterial({ color: 0x0f172a, transparent: true, opacity: 0.1 })
-      );
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.y = -1.2;
-      floor.receiveShadow = true;
-      scene.add(floor);
+      const baseMaterial = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6, metalness: 0.05 });
+      const base = new THREE.Mesh(new THREE.BoxGeometry(8, 1.2, 6), baseMaterial);
+      base.position.set(0, -0.4, 0);
+      base.receiveShadow = true;
+      scene.add(base);
+      const soilMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8, metalness: 0.05 });
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.6, 5.4), soilMaterial);
+      soil.position.set(0, 0.3, 0);
+      soil.castShadow = true;
+      soil.receiveShadow = true;
+      scene.add(soil);
 
       const group = new THREE.Group();
 
-      const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.6, 0.8, 3.4, 16),
-        new THREE.MeshStandardMaterial({ color: 0x4b3621, roughness: 0.7, metalness: 0.05 })
-      );
-      trunk.position.set(0, 1.2, 0);
+      const trunkMaterial = new THREE.MeshStandardMaterial({
+        color: 0x6b4b2a,
+        roughness: 0.7,
+        metalness: 0.05
+      });
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.65, 3.2, 20), trunkMaterial);
+      trunk.position.set(0, 1.35, 0);
       trunk.castShadow = true;
       trunk.receiveShadow = true;
       group.add(trunk);
 
-      const canopy = new THREE.Mesh(
-        new THREE.SphereGeometry(2.4, 28, 28),
-        new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6, metalness: 0.05 })
-      );
+      const canopyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x22c55e,
+        roughness: 0.5,
+        metalness: 0.05,
+        emissive: 0x0b1f16
+      });
+      const canopy = new THREE.Mesh(new THREE.SphereGeometry(2.1, 32, 32), canopyMaterial);
       canopy.position.set(0, 3.4, 0);
       canopy.castShadow = true;
       group.add(canopy);
+      const canopy2 = new THREE.Mesh(new THREE.SphereGeometry(1.5, 28, 28), canopyMaterial.clone());
+      canopy2.position.set(-1.1, 3.7, 0.6);
+      canopy2.castShadow = true;
+      group.add(canopy2);
+      const canopy3 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 24, 24), canopyMaterial.clone());
+      canopy3.position.set(1.2, 3.2, -0.8);
+      canopy3.castShadow = true;
+      group.add(canopy3);
 
-      const rootGeometry = new THREE.CylinderGeometry(0.08, 0.1, 1.6, 12);
       const nodeGeometry = new THREE.SphereGeometry(0.22, 18, 18);
 
       const rootOffsets = [
-        new THREE.Vector3(-2.4, -0.4, 0.8),
-        new THREE.Vector3(-2.2, -0.8, -0.6),
-        new THREE.Vector3(-1.4, -1.1, 1.6),
-        new THREE.Vector3(-0.4, -1.4, -1.8),
-        new THREE.Vector3(0.6, -1.3, 1.5),
-        new THREE.Vector3(1.6, -1.1, -1.2),
-        new THREE.Vector3(2.3, -0.8, 0.6),
-        new THREE.Vector3(2.6, -0.4, -0.6)
+        new THREE.Vector3(-2.4, 0.1, 1.8),
+        new THREE.Vector3(-2.6, -0.2, -1.2),
+        new THREE.Vector3(-1.4, -0.4, 2.2),
+        new THREE.Vector3(-0.6, -0.6, -2.4),
+        new THREE.Vector3(0.8, -0.5, 2.2),
+        new THREE.Vector3(1.8, -0.4, -1.8),
+        new THREE.Vector3(2.6, -0.2, 1.2),
+        new THREE.Vector3(2.8, 0.1, -1.2)
       ];
 
+      const rootGeometries = [];
       const meshes = stepsRef.current.map((step, idx) => {
-        const color = tierColors[step.tier] || 0x6366f1;
-        const rootMaterial = new THREE.MeshStandardMaterial({ color: 0x3f2a1a, roughness: 0.8 });
+        const rootMaterial = new THREE.MeshStandardMaterial({ color: 0x4b2e1a, roughness: 0.8 });
         const nodeMaterial = new THREE.MeshStandardMaterial({
-          color,
-          roughness: 0.35,
-          metalness: 0.25,
+          color: new THREE.Color(visualState.healthColor).lerp(new THREE.Color(0xffffff), 0.2),
+          roughness: 0.3,
+          metalness: 0.3,
           emissive: 0x000000
         });
 
-        const root = new THREE.Mesh(rootGeometry, rootMaterial);
         const rootTarget = rootOffsets[idx] || new THREE.Vector3(0, -1, 0);
-        root.position.set(rootTarget.x * 0.55, rootTarget.y + 0.2, rootTarget.z * 0.55);
-        root.lookAt(rootTarget.x, -1.6, rootTarget.z);
+        const rootPath = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0, 0.6, 0),
+          new THREE.Vector3(rootTarget.x * 0.4, 0.2, rootTarget.z * 0.4),
+          new THREE.Vector3(rootTarget.x * 0.8, -0.2, rootTarget.z * 0.8),
+          new THREE.Vector3(rootTarget.x, -0.6, rootTarget.z)
+        ]);
+        const rootTube = new THREE.TubeGeometry(rootPath, 20, 0.09, 8, false);
+        rootGeometries.push(rootTube);
+        const root = new THREE.Mesh(rootTube, rootMaterial);
         root.castShadow = true;
+        root.receiveShadow = true;
         group.add(root);
 
         const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
-        node.position.set(rootTarget.x, rootTarget.y, rootTarget.z);
+        node.position.set(rootTarget.x, rootTarget.y - 0.2, rootTarget.z);
         node.castShadow = true;
         node.receiveShadow = true;
         node.userData = { index: idx, tab: step.tab, tier: step.tier };
         node.scale.set(1, 1, 1);
         node.userData.targetScale = 1;
+        node.userData.baseY = node.position.y;
         group.add(node);
         return node;
       });
 
+      group.position.set(0, 0.2, 0);
+      group.scale.setScalar(visualState.treeScale);
       scene.add(group);
+      treeGroupRef.current = group;
+      canopyRefs.current = [canopy, canopy2, canopy3];
 
-      const fruitGeometry = new THREE.SphereGeometry(0.18, 16, 16);
+      const fruitGeometry = new THREE.SphereGeometry(0.16, 16, 16);
       const fruitColors = [0x38bdf8, 0xa855f7, 0xf97316, 0xfacc15];
       const fruitLabels = [
         { text: 'Customers', position: new THREE.Vector3(-1.2, 4.6, 1.2) },
@@ -291,19 +293,44 @@ const Home = () => {
         { text: 'Stakeholders', position: new THREE.Vector3(1.1, 5.0, 1.0) }
       ];
 
+      const fruitGroups = [];
       fruitLabels.forEach((fruit, index) => {
-        const sphere = new THREE.Mesh(
-          fruitGeometry,
-          new THREE.MeshStandardMaterial({ color: fruitColors[index], roughness: 0.3, metalness: 0.2 })
-        );
-        sphere.position.copy(fruit.position);
-        sphere.castShadow = true;
-        scene.add(sphere);
+        const fruitGroup = new THREE.Group();
+        const material = new THREE.MeshStandardMaterial({ color: fruitColors[index], roughness: 0.2, metalness: 0.3 });
+        for (let i = 0; i < 5; i += 1) {
+          const sphere = new THREE.Mesh(fruitGeometry, material);
+          sphere.position.set(
+            (Math.random() - 0.5) * 0.25,
+            (Math.random() - 0.5) * 0.25,
+            (Math.random() - 0.5) * 0.25
+          );
+          sphere.castShadow = true;
+          fruitGroup.add(sphere);
+        }
+        fruitGroup.position.copy(fruit.position);
+        fruitGroup.userData.baseY = fruitGroup.position.y;
+        fruitGroup.userData.floatOffset = Math.random() * Math.PI * 2;
+        scene.add(fruitGroup);
+        fruitGroups.push(fruitGroup);
 
         const label = createLabelSprite(fruit.text);
-        label.position.copy(fruit.position).add(new THREE.Vector3(0, 0.45, 0));
+        label.position.copy(fruit.position).add(new THREE.Vector3(0, 0.55, 0));
         scene.add(label);
       });
+      fruitGroupsRef.current = fruitGroups;
+
+      const dustGeometry = new THREE.BufferGeometry();
+      const dustCount = 120;
+      const dustPositions = new Float32Array(dustCount * 3);
+      for (let i = 0; i < dustCount * 3; i += 3) {
+        dustPositions[i] = (Math.random() - 0.5) * 10;
+        dustPositions[i + 1] = Math.random() * 6 + 0.5;
+        dustPositions[i + 2] = (Math.random() - 0.5) * 8;
+      }
+      dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+      const dustMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.05, transparent: true, opacity: 0.35 });
+      const dust = new THREE.Points(dustGeometry, dustMaterial);
+      scene.add(dust);
 
       ladderSceneRef.current = { scene, camera };
       ladderRendererRef.current = renderer;
@@ -347,9 +374,18 @@ const Home = () => {
       });
       resizeObserver.observe(container);
 
+      const clock = new THREE.Clock();
       const animate = () => {
         ladderAnimationRef.current = requestAnimationFrame(animate);
         controls.update();
+        const elapsed = clock.getElapsedTime();
+        canopy.rotation.y = Math.sin(elapsed * 0.2) * 0.05;
+        canopy2.rotation.y = Math.sin(elapsed * 0.18 + 1) * 0.05;
+        canopy3.rotation.y = Math.sin(elapsed * 0.16 + 2) * 0.05;
+        fruitGroups.forEach((group, idx) => {
+          group.position.y = group.userData.baseY + Math.sin(elapsed * 0.8 + group.userData.floatOffset) * 0.08;
+          group.rotation.y = Math.sin(elapsed * 0.3 + idx) * 0.08;
+        });
 
         ladderRaycasterRef.current.setFromCamera(ladderMouseRef.current, camera);
         const intersects = ladderRaycasterRef.current.intersectObjects(ladderMeshesRef.current);
@@ -366,9 +402,10 @@ const Home = () => {
           }
         }
 
-        ladderMeshesRef.current.forEach((mesh) => {
+        ladderMeshesRef.current.forEach((mesh, idx) => {
           const target = mesh.userData.targetScale || 1;
           mesh.scale.lerp(new THREE.Vector3(target, target, target), 0.12);
+          mesh.position.y = mesh.userData.baseY + Math.sin(elapsed * 0.6 + idx) * 0.06;
         });
 
         ladderBurstsRef.current = ladderBurstsRef.current.filter((burst) => {
@@ -395,9 +432,11 @@ const Home = () => {
         renderer.domElement.removeEventListener('pointerleave', onPointerLeave);
         renderer.domElement.removeEventListener('click', onClick);
         controls.dispose();
-        rootGeometry.dispose();
         nodeGeometry.dispose();
         fruitGeometry.dispose();
+        rootGeometries.forEach((geometry) => geometry.dispose());
+        dustGeometry.dispose();
+        dustMaterial.dispose();
         renderer.dispose();
         if (renderer.domElement.parentNode) {
           renderer.domElement.parentNode.removeChild(renderer.domElement);
@@ -415,24 +454,35 @@ const Home = () => {
     const sceneData = ladderSceneRef.current;
     if (!sceneData) return;
     const { scene } = sceneData;
-    const tierColors = {
-      Seed: new THREE.Color(0x6366f1),
-      Sprout: new THREE.Color(0x22c55e),
-      Star: new THREE.Color(0xf59e0b),
-      Superbrand: new THREE.Color(0xef4444)
-    };
+    const healthColor = new THREE.Color(visualState.healthColor);
 
     ladderMeshesRef.current.forEach((mesh, index) => {
-      const step = steps[index];
-      if (!step) return;
-      const baseColor = tierColors[step.tier] || new THREE.Color(0x6366f1);
       const material = mesh.material;
-      const isCompleted = step.completed;
       const isCurrent = index === activeIndex;
-      const tint = isCompleted ? baseColor.clone() : baseColor.clone().multiplyScalar(0.5);
-      material.color.copy(tint);
+      material.color.copy(healthColor);
       material.emissive.set(isCurrent ? 0x1f2937 : 0x000000);
     });
+
+    const canopyScale = 0.65 + (visualState.leafDensity / 100) * 0.75;
+    canopyRefs.current.forEach((canopy) => {
+      canopy.material.color.copy(healthColor);
+      canopy.scale.setScalar(canopyScale);
+    });
+
+    if (treeGroupRef.current) {
+      treeGroupRef.current.scale.setScalar(visualState.treeScale);
+    }
+
+    const visibleGroups = Math.min(fruitGroupsRef.current.length, Math.ceil(visualState.fruitCount / 2));
+    fruitGroupsRef.current.forEach((group, idx) => {
+      group.visible = idx < visibleGroups;
+    });
+
+    if (keyLightRef.current) {
+      keyLightRef.current.intensity = visualState.environment.lightIntensity;
+    }
+    scene.background = new THREE.Color(visualState.environment.skyColor);
+    scene.fog = new THREE.Fog(visualState.environment.skyColor, 8, 22);
 
     const completedCount = steps.filter((step) => step.completed).length;
     if (completedCount > prevCompletedRef.current) {
@@ -460,7 +510,7 @@ const Home = () => {
       }
     }
     prevCompletedRef.current = completedCount;
-  }, [steps, activeIndex]);
+  }, [steps, activeIndex, visualState]);
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4 space-y-12 animate-in fade-in duration-700">
@@ -641,6 +691,14 @@ const Home = () => {
                  <p className="text-sm text-slate-500">
                    {score < 30 ? "Critical gaps detected." : score < 80 ? "Good foundation, but needs optimization." : "Strong performance!"}
                  </p>
+                 {key === 'brand_activation' && activationInsight?.advisoryNote ? (
+                   <p className="mt-2 text-xs text-slate-500">{activationInsight.advisoryNote}</p>
+                 ) : null}
+                {key === 'security_trust' && securityInsight?.securityVerdict ? (
+                  <p className={`mt-2 text-xs ${securityInsight.systemicFragility ? 'text-red-600' : 'text-slate-500'}`}>
+                    {securityInsight.securityVerdict}
+                  </p>
+                ) : null}
                </CardContent>
              </Card>
            ))}

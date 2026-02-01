@@ -28,13 +28,14 @@ const BrandHealth = () => {
       let sectionTotal = 0;
       let sectionAnswered = 0;
       
-      SECTIONS[sectionKey].forEach(subSection => {
-        subSection.questions.forEach(q => {
-          sectionTotal++;
-          if (answers[q.id] && answers[q.id].trim() !== '') {
-            sectionAnswered++;
-          }
-        });
+      SECTIONS[sectionKey].forEach(q => {
+        sectionTotal++;
+        const value = answers[q.id];
+        if (typeof value === 'string' && value.trim() !== '') {
+          sectionAnswered++;
+        } else if (value && typeof value !== 'string') {
+          sectionAnswered++;
+        }
       });
 
       sectionScores[sectionKey] = Math.round((sectionAnswered / sectionTotal) * 100) || 0;

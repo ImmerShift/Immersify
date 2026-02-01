@@ -1,46 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getStore, updateStore } from '@/lib/store';
+import { updateStore, useStore } from '@/lib/store';
 import { generateStrategy } from '@/lib/gemini';
 import { toast } from 'sonner';
 
 const Strategy = () => {
+  const strategy = useStore((state) => state.strategy || null);
+  const answers = useStore((state) => state.answers || {});
+  const apiKey = useStore((state) => state.apiKey || '');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [strategy, setStrategy] = useState(null);
-  const [store, setStore] = useState({});
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const currentStore = getStore();
-    setStore(currentStore);
+  const brandName = answers.company_name || 'your brand';
+  const insightCount = useMemo(() => {
+    return Object.values(answers).filter((value) => {
+      if (typeof value === 'string') return value.trim().length > 0;
+      return value !== null && value !== undefined;
+    }).length;
+  }, [answers]);
 
-    if (currentStore.strategy) {
-      setStrategy(currentStore.strategy);
-    } else if (currentStore.answers && currentStore.apiKey) {
-      // Auto-generate if not present but we have data
-      handleGenerate(currentStore);
-    } else {
-      if (!currentStore.apiKey) {
-        setError("Missing API Key. Please configure it in Settings.");
-      } else if (!currentStore.answers || !currentStore.answers.company_name) {
-        setError("No audit data found. Please complete the Questionnaire.");
-      }
-    }
-  }, []);
-
-  const handleGenerate = async (currentStore) => {
+  const handleGenerate = async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const result = await generateStrategy(
-        currentStore.apiKey,
-        currentStore.answers.company_name,
-        currentStore.answers,
-        ['brand_core', 'visual', 'product', 'market', 'tech', 'brand_activation', 'team_branding', 'security_trust']
-      );
-      setStrategy(result);
+      const result = await generateStrategy(apiKey, brandName, answers);
       updateStore({ strategy: result });
       toast.success("Strategy Generated Successfully!");
     } catch (err) {
@@ -61,85 +46,87 @@ const Strategy = () => {
     );
   }
 
-  if (error) {
+  if (!strategy) {
     return (
-      <div className="max-w-md mx-auto py-12 text-center">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold text-red-800 mb-2">Action Required</h3>
-            <p className="text-red-600 mb-4">{error}</p>
-            {error.includes("API Key") ? (
-              <Link to="/settings"><Button variant="outline">Go to Settings</Button></Link>
-            ) : (
-              <Link to="/questionnaire"><Button>Go to Questionnaire</Button></Link>
-            )}
+      <div className="max-w-3xl mx-auto py-12 px-4">
+        <Card className="border-slate-200">
+          <CardHeader>
+            <CardTitle className="text-2xl text-indigo-900">Ready to Generate</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-slate-600">
+              We have collected {insightCount} insights about {brandName}.
+            </p>
+            {error ? <div className="text-sm text-red-600">{error}</div> : null}
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={handleGenerate} disabled={!apiKey || insightCount === 0}>
+                Generate Strategy
+              </Button>
+              {!apiKey && (
+                <Link to="/settings" className="text-sm text-indigo-600 hover:underline">
+                  Add API key in Settings
+                </Link>
+              )}
+              {insightCount === 0 && (
+                <Link to="/questionnaire" className="text-sm text-indigo-600 hover:underline">
+                  Complete the Questionnaire
+                </Link>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!strategy) return null;
+  const pillars = Object.entries(strategy.pillars || {});
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">IBE Strategy Report</h1>
-        <Button onClick={() => handleGenerate(store)} variant="outline">
-          Regenerate
-        </Button>
+    <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-slate-900">Strategy</h1>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => window.print()}>Print to PDF</Button>
+          <Button onClick={handleGenerate}>Regenerate</Button>
+        </div>
       </div>
 
-      <div className="grid gap-8">
-        {Object.entries(strategy).map(([key, section]) => {
-           // Map keys to readable titles
-           const titles = {
-             brand_core: "Brand Core Story & Ideation",
-             visual: "Visual Identity",
-             product: "Product Experience",
-             market: "Market Plan",
-             tech: "Technology & Accessibility",
-             brand_activation: "Brand Activation",
-             team_branding: "Team Branding",
-             security_trust: "Security & Trust"
-           };
-           
-           return (
-            <section key={key} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-2xl font-semibold text-indigo-700 border-b pb-2 flex items-center gap-2">
-                {titles[key] || key}
-              </h2>
-              
-              {/* Analysis */}
-              <Card className="bg-slate-50 border-none">
-                <CardContent className="pt-6">
-                  <p className="text-slate-700 italic">"{section.analysis}"</p>
-                </CardContent>
-              </Card>
+      <Card className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-none">
+        <CardHeader>
+          <CardTitle className="text-xl">Creative Idea</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-lg font-medium">{strategy.creative_idea || 'No creative idea returned.'}</p>
+        </CardContent>
+      </Card>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Recommendations */}
-                <Card>
-                  <CardHeader><CardTitle className="text-lg text-indigo-900">Strategic Actions</CardTitle></CardHeader>
-                  <CardContent>
-                    <ul className="list-disc pl-5 space-y-2 text-slate-600">
-                      {section.recommendations?.map((rec, i) => (
-                        <li key={i}>{rec}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+      <Card className="bg-white border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-lg text-slate-900">Executive Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-slate-600 leading-relaxed">{strategy.analysis || 'No analysis returned.'}</p>
+        </CardContent>
+      </Card>
 
-                {/* Creative Idea */}
-                <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-100">
-                  <CardHeader><CardTitle className="text-lg text-indigo-600">Creative Spark ✨</CardTitle></CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-medium text-slate-800">{section.creative_idea}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
-           );
+      <div className="grid md:grid-cols-2 gap-6">
+        {pillars.map(([pillarKey, pillar]) => {
+          const score = Math.max(0, Math.min(100, Number(pillar.score) || 0));
+          const label = pillarKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+          return (
+            <Card key={pillarKey} className="border-slate-200">
+              <CardHeader>
+                <CardTitle className="text-lg text-indigo-900">{label}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-full bg-indigo-600" style={{ width: `${score}%` }} />
+                </div>
+                <div className="text-sm text-slate-500">{score}%</div>
+                <p className="text-slate-600">{pillar.advice || 'No advice returned.'}</p>
+              </CardContent>
+            </Card>
+          );
         })}
       </div>
     </div>

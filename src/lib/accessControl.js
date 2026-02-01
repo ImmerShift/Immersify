@@ -79,14 +79,12 @@ export const getQuestionAccess = (question, userTier) => {
 
 export const buildQuestionIndex = (sections) => {
   const index = {};
-  Object.values(sections).forEach((sectionList) => {
-    sectionList.forEach((section) => {
-      section.questions.forEach((question) => {
-        index[question.id] = {
-          ...question,
-          tier: question.tier || section.tier || 'Seed'
-        };
-      });
+  Object.values(sections).forEach((questions) => {
+    questions.forEach((question) => {
+      index[question.id] = {
+        ...question,
+        tier: question.tier || 'Seed'
+      };
     });
   });
   return index;
@@ -108,16 +106,14 @@ export const getTierComparison = (sections, userTier) => {
   const userIndex = getTierIndex(normalizedTier);
   const grouped = {};
 
-  Object.values(sections).forEach((sectionList) => {
-    sectionList.forEach((section) => {
-      section.questions.forEach((question) => {
-        const questionTier = normalizeTier(question?.tier || section.tier || 'Seed');
-        const questionIndex = getTierIndex(questionTier);
-        if (questionIndex > userIndex) {
-          if (!grouped[questionTier]) grouped[questionTier] = [];
-          grouped[questionTier].push(question.label);
-        }
-      });
+  Object.values(sections).forEach((questions) => {
+    questions.forEach((question) => {
+      const questionTier = normalizeTier(question?.tier || 'Seed');
+      const questionIndex = getTierIndex(questionTier);
+      if (questionIndex > userIndex) {
+        if (!grouped[questionTier]) grouped[questionTier] = [];
+        grouped[questionTier].push(question.label);
+      }
     });
   });
 
