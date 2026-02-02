@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { updateStore, useStore } from '@/lib/store';
 import { generateStrategy } from '@/lib/gemini';
+import StrategyRoadmap from '@/components/strategy/StrategyRoadmap';
 import { toast } from 'sonner';
 
 const Strategy = () => {
@@ -75,6 +76,9 @@ const Strategy = () => {
             </div>
           </CardContent>
         </Card>
+        <div className="mt-10">
+          <StrategyRoadmap />
+        </div>
       </div>
     );
   }
@@ -129,6 +133,7 @@ const Strategy = () => {
           );
         })}
       </div>
+      <StrategyRoadmap />
     </div>
   );
 };

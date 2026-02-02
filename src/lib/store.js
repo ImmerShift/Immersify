@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { calculateScore, determineTier, TIERS } from '@/lib/utils';
 
 export const STORAGE_KEY = 'immersify_app_v2';
@@ -33,11 +33,12 @@ const loadStoreState = () => {
   if (storeState) return storeState;
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    const parsed = data ? JSON.parse(data) : { ...DEFAULT_STATE };
+    const parsed = data ? JSON.parse(data) : {};
+    const merged = { ...DEFAULT_STATE, ...parsed };
     if (import.meta.env.VITE_GEMINI_API_KEY) {
-      parsed.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      merged.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     }
-    storeState = parsed;
+    storeState = merged;
     return storeState;
   } catch (e) {
     console.error("Storage Error:", e);
@@ -159,6 +160,14 @@ export const rollbackLastLevelChange = () => {
 };
 
 export const useStore = (selector = (state) => state) => {
-  const getSnapshot = () => selector(getStore());
+  const lastStateRef = useRef(null);
+  const lastSelectionRef = useRef(null);
+  const getSnapshot = () => {
+    const current = getStore();
+    if (current === lastStateRef.current) return lastSelectionRef.current;
+    lastStateRef.current = current;
+    lastSelectionRef.current = selector(current);
+    return lastSelectionRef.current;
+  };
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };

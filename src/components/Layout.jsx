@@ -32,6 +32,7 @@ const Layout = ({ children }) => {
     { path: '/', label: 'Home', icon: Home },
     { path: '/questionnaire', label: 'Brand Audit', icon: ClipboardCheck },
     { path: '/brand-health', label: 'Brand Health', icon: Activity },
+    { path: '/audit-summary', label: 'Executive Audit', icon: Sparkles },
     { path: '/strategy', label: 'IBE Strategy', icon: Lightbulb },
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ];

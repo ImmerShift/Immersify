@@ -10,6 +10,7 @@ import { getPermissionMatrix, getTierComparison } from "@/lib/accessControl";
 import { analyzeVisualConsistency } from '@/lib/gemini';
 import { SECTIONS } from '@/lib/constants';
 import QuestionCard from '@/components/audit/QuestionCard';
+import ReportGenerator from '@/components/reports/ReportGenerator';
 
 const Tabs = TabsPrimitive.Root;
 const TabsList = React.forwardRef(({ className, ...props }, ref) => (
@@ -158,9 +159,12 @@ const Questionnaire = () => {
           <h1 className="text-3xl font-bold text-slate-900">Brand Audit Questionnaire</h1>
           <p className="text-slate-500 mt-1">Focus on foundational questions to build your brand core</p>
         </div>
-        <Button onClick={handleSave} className="bg-indigo-900 hover:bg-indigo-800">
-          <Save className="w-4 h-4 mr-2" /> Save Progress
-        </Button>
+        <div className="flex gap-3">
+          <ReportGenerator />
+          <Button onClick={handleSave} className="bg-indigo-900 hover:bg-indigo-800">
+            <Save className="w-4 h-4 mr-2" /> Save Progress
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

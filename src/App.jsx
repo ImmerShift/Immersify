@@ -6,6 +6,7 @@ import Settings from './pages/Settings';
 import Questionnaire from './pages/Questionnaire';
 import Strategy from './pages/Strategy';
 import BrandHealth from './pages/BrandHealth';
+import AuditSummary from './pages/AuditSummary';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/questionnaire" element={<Questionnaire />} />
           <Route path="/brand-health" element={<BrandHealth />} />
           <Route path="/strategy" element={<Strategy />} />
+          <Route path="/audit-summary" element={<AuditSummary />} />
         </Routes>
       </Layout>
     </Router>

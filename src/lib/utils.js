@@ -378,6 +378,80 @@ const calculateTeamScore = (answers = {}, ratings = {}, brandTier = 'Seed') => {
   };
 };
 
+const calculateCoreScore = (answers = {}, ratings = {}, brandTier = 'Seed') => {
+  const purposeText = typeof answers.core_purpose === 'string' ? answers.core_purpose.trim() : '';
+  const visionText = typeof answers.core_vision === 'string' ? answers.core_vision.trim() : '';
+  const valuesText = typeof answers.core_values === 'string' ? answers.core_values.trim() : '';
+  const combined = `${purposeText} ${visionText} ${valuesText}`.trim();
+  const tier = normalizeTier(brandTier);
+
+  const claritySignals = ['purpose', 'why', 'mission', 'impact', 'legacy', 'transformation', 'paradigm'];
+  const alignmentSignals = ['action', 'execution', 'goals', 'strategy', 'roadmap', 'plan'];
+  const differentiatorSignals = ['unique', 'distinct', 'differentiated', 'unlike', 'only', 'category'];
+  const defensibilitySignals = ['moat', 'defensible', 'positioning', 'psychological', 'ownership', 'credibility'];
+
+  const purposeClarity = clamp(keywordScore(combined, claritySignals) * 18 + (purposeText.length / 40), 0, 100);
+  const missionAlignment = clamp(keywordScore(combined, alignmentSignals) * 16 + (visionText.length / 45), 0, 100);
+  const differentiatorStrength = clamp(keywordScore(combined, differentiatorSignals) * 20 + (valuesText.length / 50), 0, 100);
+  const defensibilityIndex = clamp(keywordScore(combined, defensibilitySignals) * 22 + (combined.length / 80), 0, 100);
+
+  let score = 0;
+  if (tier === 'Seed') {
+    score = purposeClarity * 0.9 + missionAlignment * 0.1;
+  } else if (tier === 'Sprout') {
+    score = missionAlignment * 0.7 + purposeClarity * 0.3;
+  } else if (tier === 'Star') {
+    score = differentiatorStrength * 0.6 + missionAlignment * 0.4;
+  } else {
+    score = defensibilityIndex * 0.8 + differentiatorStrength * 0.2;
+  }
+
+  const corporateSpeak = [
+    'we want to be the best',
+    'customer-centric',
+    'world-class service',
+    'innovative solutions',
+    'industry-leading',
+    'best-in-class'
+  ];
+  const genericDetected = keywordScore(combined, corporateSpeak) > 0 && combined.length < 160;
+  if ((tier === 'Star' || tier === 'Superbrand') && genericDetected) {
+    score = Math.min(score, 45);
+  }
+
+  if (purposeText && purposeText.length < 50) {
+    score = Math.round(score * 0.8);
+  }
+
+  const integrityKeywords = ['legacy', 'transformation', 'paradigm', 'impact'];
+  if (keywordScore(combined, integrityKeywords) > 0) {
+    score = Math.min(100, score * 1.15);
+  }
+
+  const hollowSoul = ratingToScore(ratings.visual_consistency) === 100 && score < 40;
+
+  const finalScore = Math.round(clamp(score, 0, 100));
+  const coreVerdict = hollowSoul
+    ? "Hollow Brand warning: your visuals shine, but the core story lacks soul and defensibility."
+    : finalScore >= 75
+      ? "Your core story is clear and defensible; keep sharpening the narrative edges."
+      : finalScore >= 40
+        ? "Your core story exists, but it lacks the depth to hold under competitive pressure."
+        : "Your brand core is shallow; clarify the why before scaling the how.";
+
+  return {
+    pillarId: 'brand_core',
+    score: finalScore,
+    coreMetrics: {
+      purposeClarity: Math.round(purposeClarity),
+      strategicUniqueness: Math.round(differentiatorStrength),
+      authenticityFactor: Math.round(missionAlignment)
+    },
+    coreVerdict,
+    hollowSoul
+  };
+};
+
 const calculateSecurityScore = (answers = {}, ratings = {}, brandTier = 'Seed') => {
   const trustText = typeof answers.trust_compliance === 'string' ? answers.trust_compliance.trim() : '';
   const tier = normalizeTier(brandTier);
@@ -439,7 +513,80 @@ const calculateSecurityScore = (answers = {}, ratings = {}, brandTier = 'Seed') 
   };
 };
 
+const calculateProductExperienceScore = (answers = {}, ratings = {}, brandTier = 'Seed') => {
+  const signatureText = typeof answers.product_signature === 'string' ? answers.product_signature.trim() : '';
+  const journeyText = typeof answers.product_journey === 'string' ? answers.product_journey.trim() : '';
+  const combined = `${signatureText} ${journeyText}`.trim();
+  const tier = normalizeTier(brandTier);
+
+  const utilitySignals = ['solve', 'problem', 'useful', 'benefit', 'need', 'outcome'];
+  const onboardingSignals = ['onboarding', 'unboxing', 'setup', 'first impression', 'first use', 'activation'];
+  const retentionSignals = ['retention', 'repeat', 'loyalty', 'habit', 'feedback loop', 'update'];
+  const loyaltySignals = ['delight', 'frictionless', 'emotion', 'connection', 'ecosystem', 'lifestyle'];
+
+  const utilityValue = clamp(keywordScore(combined, utilitySignals) * 18 + (signatureText.length / 40), 0, 100);
+  const onboardingScore = clamp(keywordScore(combined, onboardingSignals) * 20 + (journeyText.length / 50), 0, 100);
+  const retentionPotential = clamp(keywordScore(combined, retentionSignals) * 20 + (journeyText.length / 60), 0, 100);
+  const emotionalLoyalty = clamp(keywordScore(combined, loyaltySignals) * 22 + (combined.length / 80), 0, 100);
+
+  let score = 0;
+  if (tier === 'Seed') {
+    score = utilityValue * 0.8 + onboardingScore * 0.2;
+  } else if (tier === 'Sprout') {
+    score = onboardingScore * 0.6 + utilityValue * 0.4;
+  } else if (tier === 'Star') {
+    score = retentionPotential * 0.7 + onboardingScore * 0.3;
+  } else {
+    score = emotionalLoyalty * 0.8 + retentionPotential * 0.2;
+  }
+
+  const frictionIndicators = ['manual support', 'email only', 'no tracking'];
+  const frictionDetected = keywordScore(combined, frictionIndicators) > 0;
+  if ((tier === 'Star' || tier === 'Superbrand') && frictionDetected) {
+    score = Math.min(score, 40);
+  }
+
+  const delightKeywords = ['user journey mapping', 'frictionless', 'post-purchase', 'community-led', 'user feedback loop'];
+  if (keywordScore(combined, delightKeywords) > 0) {
+    score = Math.min(100, score * 1.2);
+  }
+
+  const featureSignals = ['feature', 'features', 'function', 'spec', 'specs'];
+  const benefitSignals = ['benefit', 'feel', 'experience', 'delight', 'outcome'];
+  if (keywordScore(combined, featureSignals) > 0 && keywordScore(combined, benefitSignals) === 0) {
+    score = Math.round(score * 0.85);
+  }
+
+  const premiumSignals = ['premium', 'luxury', 'exclusive', 'elite', 'high-end'];
+  const coreText = `${answers.core_purpose || ''} ${answers.core_vision || ''} ${answers.core_values || ''}`.toLowerCase();
+  const corePremium = keywordScore(coreText, premiumSignals) > 0;
+  const experienceGeneric = score < 40;
+
+  const finalScore = Math.round(clamp(score, 0, 100));
+  const productVerdict = corePremium && experienceGeneric
+    ? "Brand-Value Mismatch: the core promises premium, but the experience feels generic."
+    : finalScore >= 75
+      ? "Your product experience reinforces the brand promise with clarity and loyalty."
+      : finalScore >= 40
+        ? "Your product delivers value, but friction and retention gaps still leak trust."
+        : "Your product experience does not yet match the story you tell the market.";
+
+  return {
+    pillarId: 'product_experience',
+    score: finalScore,
+    experienceMetrics: {
+      utilityValue: Math.round(utilityValue),
+      frictionLevel: Math.round(100 - clamp(score, 0, 100)),
+      retentionPotential: Math.round(retentionPotential)
+    },
+    productVerdict
+  };
+};
+
 export const calculatePillarScore = (pillarId, answers = {}, ratings = {}, brandTier = 'Seed') => {
+  if (pillarId === 'brand_core') {
+    return calculateCoreScore(answers, ratings, brandTier);
+  }
   if (pillarId === 'visual_identity') {
     return getVisualIdentityScore(answers, ratings, brandTier);
   }
@@ -458,6 +605,9 @@ export const calculatePillarScore = (pillarId, answers = {}, ratings = {}, brand
   if (pillarId === 'security_trust') {
     return calculateSecurityScore(answers, ratings, brandTier);
   }
+  if (pillarId === 'product_experience') {
+    return calculateProductExperienceScore(answers, ratings, brandTier);
+  }
   const pillarScore = calculateBasePillarScore(pillarId, ratings);
   return {
     pillarId,
@@ -469,6 +619,235 @@ export const calculatePillarScore = (pillarId, answers = {}, ratings = {}, brand
     },
     status: getStatusFromScore(pillarScore),
     systemicRisk: false
+  };
+};
+
+export const generateAuditSummary = (answers = {}, ratings = {}, brandLevel = null) => {
+  const baseScores = calculateScore(answers, ratings);
+  const currentTier = brandLevel?.level || determineTier(baseScores.overallScore);
+  const tierIndex = getTierIndex(currentTier);
+  const pillarScores = {};
+  const pillarDetails = {};
+  const pillarMinTier = {};
+
+  Object.entries(SECTIONS).forEach(([pillarKey, questions]) => {
+    const minTierIndex = Math.min(
+      ...questions.map((q) => getTierIndex(q.tier || 'Seed'))
+    );
+    pillarMinTier[pillarKey] = minTierIndex;
+    const detail = calculatePillarScore(pillarKey, answers, ratings, currentTier);
+    pillarDetails[pillarKey] = detail;
+    pillarScores[pillarKey] = detail.score;
+  });
+
+  const requiredPillars = Object.keys(pillarScores).filter(
+    (pillarKey) => pillarMinTier[pillarKey] <= tierIndex
+  );
+  const bottleneckKey = (requiredPillars.length ? requiredPillars : Object.keys(pillarScores))
+    .reduce((lowestKey, key) => (pillarScores[key] < pillarScores[lowestKey] ? key : lowestKey), requiredPillars[0] || Object.keys(pillarScores)[0]);
+
+  const highKey = Object.keys(pillarScores)
+    .reduce((highestKey, key) => (pillarScores[key] > pillarScores[highestKey] ? key : highestKey), Object.keys(pillarScores)[0]);
+  const lowKey = Object.keys(pillarScores)
+    .reduce((lowestKey, key) => (pillarScores[key] < pillarScores[lowestKey] ? key : lowestKey), Object.keys(pillarScores)[0]);
+  const synergyGap = Math.abs(pillarScores[highKey] - pillarScores[lowKey]);
+
+  const labelMap = {
+    brand_core: 'Brand Core',
+    visual_identity: 'Visual Identity',
+    product_experience: 'Product Experience',
+    market_plan: 'Market Plan',
+    technology: 'Technology',
+    brand_activation: 'Brand Activation',
+    team_branding: 'Team Branding',
+    security_trust: 'Security & Trust'
+  };
+
+  const bottleneckSeverity = (currentTier === 'Star' || currentTier === 'Superbrand') && bottleneckKey === 'security_trust'
+    ? 'Catastrophic Risk'
+    : 'Priority #1 Action Item';
+
+  const synergyVerdict = synergyGap > 50
+    ? `Your brand is fragmented. You are over-investing in ${labelMap[highKey]} while neglecting the foundation of ${labelMap[lowKey]}.`
+    : 'Your pillars are balanced enough to scale without structural drag.';
+
+  const advisorMirror = (() => {
+    if (currentTier === 'Seed') {
+      return baseScores.overallScore >= 40
+        ? "Your soul is forming, but survival depends on sharper clarity and consistency. Without a true why, you will be drowned out."
+        : "You are still invisible. Clarify the purpose before you chase traction.";
+    }
+    if (currentTier === 'Sprout') {
+      return baseScores.overallScore >= 50
+        ? "You are building momentum, but misalignment is wasting energy. Tighten the system so every touchpoint says the same thing."
+        : "You have movement without cohesion. Align the core before you scale the noise.";
+    }
+    if (currentTier === 'Star') {
+      return baseScores.overallScore >= 60
+        ? "You have leverage potential, but scale will punish weak infrastructure. Strengthen the system before the market tests you."
+        : "You are aiming for scale without the engine to survive it. Fix the foundation before you accelerate.";
+    }
+    return baseScores.overallScore >= 75
+      ? "You are operating like a legacy brand, but defense must be relentless. Fortify the weakest pillar before competitors attack it."
+      : "You look like a leader but you are not yet defensible. Build the moat or risk becoming a fad.";
+  })();
+
+  const nextTierIndex = Math.min(tierIndex + 1, TIERS.length - 1);
+  const nextTier = TIERS[nextTierIndex];
+  const nextMilestone = nextTierIndex === tierIndex
+    ? 'Maintain Superbrand dominance'
+    : `${nextTier} at ${TIER_THRESHOLDS[nextTier]}%`;
+
+  const recommendation = nextTierIndex === tierIndex
+    ? `Protect ${labelMap[bottleneckKey]} to defend your Superbrand position.`
+    : `To move from ${currentTier} to ${nextTier}, close the gap in ${labelMap[bottleneckKey]} and lift it above ${TIER_THRESHOLDS[nextTier]}%.`;
+
+  return {
+    currentTier,
+    overallScore: baseScores.overallScore,
+    nextMilestone,
+    pillarScores,
+    pillarDetails,
+    bottleneck: {
+      id: bottleneckKey,
+      label: labelMap[bottleneckKey],
+      score: pillarScores[bottleneckKey],
+      severity: bottleneckSeverity
+    },
+    synergy: {
+      gap: synergyGap,
+      highPillar: labelMap[highKey],
+      lowPillar: labelMap[lowKey],
+      verdict: synergyVerdict
+    },
+    advisorMirror,
+    recommendation
+  };
+};
+
+export const generateStrategicRoadmap = (answers = {}, ratings = {}, brandLevel = null) => {
+  const baseScores = calculateScore(answers, ratings);
+  const currentTier = brandLevel?.level || determineTier(baseScores.overallScore);
+  const tierIndex = getTierIndex(currentTier);
+  const nextTier = TIERS[Math.min(tierIndex + 1, TIERS.length - 1)];
+
+  const pillarScores = {};
+  const pillarMinTier = {};
+  Object.entries(SECTIONS).forEach(([pillarKey, questions]) => {
+    const minTierIndex = Math.min(
+      ...questions.map((q) => getTierIndex(q.tier || 'Seed'))
+    );
+    pillarMinTier[pillarKey] = minTierIndex;
+    pillarScores[pillarKey] = calculatePillarScore(pillarKey, answers, ratings, currentTier).score;
+  });
+
+  const requiredPillars = Object.keys(pillarScores).filter(
+    (pillarKey) => pillarMinTier[pillarKey] <= tierIndex
+  );
+  const bottleneckKey = (requiredPillars.length ? requiredPillars : Object.keys(pillarScores))
+    .reduce((lowestKey, key) => (pillarScores[key] < pillarScores[lowestKey] ? key : lowestKey), requiredPillars[0] || Object.keys(pillarScores)[0]);
+
+  const labelMap = {
+    brand_core: 'Brand Core',
+    visual_identity: 'Visual Identity',
+    product_experience: 'Product Experience',
+    market_plan: 'Market Plan',
+    technology: 'Technology',
+    brand_activation: 'Brand Activation',
+    team_branding: 'Team Branding',
+    security_trust: 'Security & Trust'
+  };
+
+  const actionLibrary = {
+    Seed: {
+      brand_core: "Draft a Non-Negotiables list that defines why your brand exists.",
+      visual_identity: "Create a single, consistent logo and color rule for all touchpoints.",
+      product_experience: "Document the core utility and the one outcome you must deliver.",
+      market_plan: "Define a precise ICP with behaviors and buying triggers.",
+      technology: "Secure a live domain and mobile-ready site foundation.",
+      brand_activation: "Launch one exposure play that proves initial demand.",
+      team_branding: "Write a founder manifesto that sets the cultural baseline.",
+      security_trust: "Publish transparent terms and limitations in plain language."
+    },
+    Sprout: {
+      brand_core: "Align your mission to the business roadmap with explicit 90-day goals.",
+      visual_identity: "Standardize all social touchpoints into a 1-page Brand Style Guide.",
+      product_experience: "Map onboarding friction and remove the first three drop-off points.",
+      market_plan: "Validate two channels that match your ICP behavior.",
+      technology: "Connect core tools so leads flow into a single system of record.",
+      brand_activation: "Build a repeatable activation loop that generates feedback.",
+      team_branding: "Create a simple culture deck and share it with early hires.",
+      security_trust: "Implement basic security protocols and publish a privacy policy."
+    },
+    Star: {
+      brand_core: "Define the unique differentiator that survives a crowded market.",
+      visual_identity: "Audit omnichannel consistency and enforce a single visual system.",
+      product_experience: "Build retention loops and track post-purchase behavior.",
+      market_plan: "Model CAC vs LTV and prove scalable acquisition economics.",
+      technology: "Automate workflows and measure performance bottlenecks.",
+      brand_activation: "Design a community-led activation that compounds reach.",
+      team_branding: "Create a Brand Bible and train every team lead on it.",
+      security_trust: "Implement a Zero-Trust policy and run a third-party vulnerability audit."
+    },
+    Superbrand: {
+      brand_core: "Codify your institutional narrative and defend it in the market.",
+      visual_identity: "Institutionalize visual equity across every ecosystem partner.",
+      product_experience: "Engineer frictionless loyalty with ecosystem-level retention.",
+      market_plan: "Lock market penetration with defensible strategic positioning.",
+      technology: "Build first-party data intelligence and predictive governance.",
+      brand_activation: "Design cultural landmark activations that create legacy memory.",
+      team_branding: "Operationalize internal advocacy with governance and incentives.",
+      security_trust: "Own security protocols and formalize brand governance systems."
+    }
+  };
+
+  const pickTask = (pillarKey) => actionLibrary[currentTier]?.[pillarKey] || actionLibrary.Seed[pillarKey];
+
+  const phaseOne = {
+    title: "Day 1-30: The Foundation",
+    badge: "Critical",
+    pillar: labelMap[bottleneckKey],
+    action: pickTask(bottleneckKey),
+    realityCheck: `If you ignore ${labelMap[bottleneckKey]} and chase growth, you are building on a cracked foundation.`
+  };
+
+  const phaseTwo = {
+    title: "Day 31-60: The Alignment",
+    badge: "Strategic",
+    pillar: "Brand Core + Market Plan",
+    action: `${pickTask('brand_core')} Then ${pickTask('market_plan')}.`,
+    realityCheck: "If your story and go-to-market do not align, every campaign will leak credibility."
+  };
+
+  const scalePillar = pillarScores.technology <= pillarScores.brand_activation ? 'technology' : 'brand_activation';
+  const phaseThree = {
+    title: "Day 61-90: The Scale",
+    badge: "Growth",
+    pillar: labelMap[scalePillar],
+    action: pickTask(scalePillar),
+    realityCheck: `If you ignore ${labelMap[scalePillar]} now, the next tier will collapse under its own weight.`
+  };
+
+  const targetMetric = Math.max(75, TIER_THRESHOLDS[nextTier]);
+  const successMetric = nextTier === currentTier
+    ? `Maintain a ${labelMap[scalePillar]} score above ${targetMetric}% to defend your current tier.`
+    : `By Day 90, your ${labelMap[scalePillar]} score must reach ${targetMetric}% to sustain a ${nextTier} upgrade.`;
+
+  const boardNote = nextTier === currentTier
+    ? "Protect dominance by eliminating the weakest pillar before competitors exploit it."
+    : `This roadmap is built to move you from ${currentTier} to ${nextTier} by fixing the leak, aligning the message, then scaling the engine.`;
+
+  return {
+    currentTier,
+    nextTier,
+    strategicBottleneck: {
+      id: bottleneckKey,
+      label: labelMap[bottleneckKey],
+      score: pillarScores[bottleneckKey]
+    },
+    phases: [phaseOne, phaseTwo, phaseThree],
+    successMetric,
+    boardNote
   };
 };
 
