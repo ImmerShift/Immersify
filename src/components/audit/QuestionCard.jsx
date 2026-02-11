@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { cn, getQuestionAccess } from '@/lib/utils';
 import { setAnswer, setRating, updateStore, useStore } from '@/lib/store';
 import { getTieredMentorship } from '@/lib/gemini';
+import { mockWorkbookSubmit } from '@/lib/mockWorkbook';
 
 const RadioGroup = React.forwardRef(({ className, ...props }, ref) => (
   <RadioGroupPrimitive.Root className={cn("flex gap-4", className)} {...props} ref={ref} />
@@ -24,6 +25,7 @@ const QuestionCard = ({ question, userTier }) => {
   const answers = useStore((state) => state.answers || {});
   const ratings = useStore((state) => state.ratings || {});
   const mentorFeedback = useStore((state) => state.mentorFeedback || {});
+  const gamification = useStore((state) => state.gamification || {});
   const apiKey = useStore((state) => state.apiKey || '');
   const currentTier = useStore((state) => state.brandLevel?.level || state.userTier || userTier || 'Seed');
   const access = getQuestionAccess(question.tier, currentTier);
@@ -135,7 +137,6 @@ const QuestionCard = ({ question, userTier }) => {
 
   useEffect(() => {
     if (locked) return;
-    if (!apiKey) return;
     if (question.type !== 'text' && question.type !== 'textarea') return;
     const value = answers[question.id];
     if (typeof value !== 'string') return;
@@ -147,7 +148,8 @@ const QuestionCard = ({ question, userTier }) => {
     debounceRef.current = setTimeout(async () => {
       setIsAnalyzing(true);
       try {
-        const result = await getTieredMentorship(question, trimmed, currentTier);
+        const mockResult = mockWorkbookSubmit({ question, answerText: trimmed, tierContext: currentTier });
+        const result = apiKey ? await getTieredMentorship(question, trimmed, currentTier) : mockResult.ai_feedback;
         const nextFeedback = {
           ...result,
           sourceText: trimmed
@@ -156,7 +158,15 @@ const QuestionCard = ({ question, userTier }) => {
           mentorFeedback: {
             ...mentorFeedback,
             [question.id]: nextFeedback
-          }
+          },
+          ...(apiKey
+            ? {}
+            : {
+                gamification: {
+                  ...gamification,
+                  current_xp: (gamification.current_xp || 0) + (mockResult.gamification?.xp_awarded || 0)
+                }
+              })
         });
       } finally {
         setIsAnalyzing(false);

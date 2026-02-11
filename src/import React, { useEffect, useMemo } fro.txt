@@ -1,0 +1,258 @@
+import React, { useEffect, useMemo } from 'react';
+import { Check, Lock } from 'lucide-react';
+import { useStore as useQuestionnaireStore } from '@/lib/store';
+import { SEED_QUESTIONNAIRE } from '@/data/questionnaires/v3/seed';
+import { SPROUT_QUESTIONNAIRE } from '@/data/questionnaires/v3/sprout';
+import { STAR_QUESTIONNAIRE } from '@/data/questionnaires/v3/star';
+import { SUPERBRAND_QUESTIONNAIRE } from '@/data/questionnaires/v3/superbrand';
+
+type TierKey = 'seed' | 'sprout' | 'star' | 'superbrand';
+
+type LadderSection = {
+  title: string;
+  description?: string;
+  questions: Array<{ id: string; label: string; type: string; tier: string; placeholder?: string }>;
+  checklist?: {
+    title: string;
+    description: string;
+    items: Array<{ id: string; label: string; required: boolean }>;
+  };
+};
+
+export type LadderNode = {
+  id: string;
+  title: string;
+  tierKey: TierKey;
+  tierLabel: string;
+  sections: LadderSection[];
+  completion: number;
+  completed: boolean;
+  locked: boolean;
+  active: boolean;
+};
+
+const TIER_ORDER: TierKey[] = ['seed', 'sprout', 'star', 'superbrand'];
+
+const TIER_DATA: Record<TierKey, any[]> = {
+  seed: SEED_QUESTIONNAIRE,
+  sprout: SPROUT_QUESTIONNAIRE,
+  star: STAR_QUESTIONNAIRE,
+  superbrand: SUPERBRAND_QUESTIONNAIRE
+};
+
+const PILLAR_LABELS: Record<number, string> = {
+  1: 'Brand Core',
+  2: 'Visual Identity',
+  3: 'Product Experience',
+  4: 'Market Plan',
+  5: 'Technology',
+  6: 'Brand Activation',
+  7: 'Team Branding',
+  8: 'Security & Trust'
+};
+
+const TIER_LABELS: Record<TierKey, string> = {
+  seed: 'Seed',
+  sprout: 'Sprout',
+  star: 'Star',
+  superbrand: 'Superbrand'
+};
+
+const tierKeyFromLabel = (tier: string | null | undefined): TierKey => {
+  const key = (tier || 'Seed').toLowerCase();
+  if (key === 'sprout' || key === 'star' || key === 'superbrand') return key;
+  return 'seed';
+};
+
+const getAnswerValue = (answers: Record<string, any>, tierKey: TierKey, id: string) => {
+  if (answers?.[tierKey] && typeof answers[tierKey] === 'object' && id in answers[tierKey]) {
+    return answers[tierKey][id];
+  }
+  return answers?.[id];
+};
+
+const isTextComplete = (value: unknown) =>
+  typeof value === 'string' && value.trim().length > 10;
+
+const isChecklistComplete = (value: unknown) => Boolean(value);
+
+const buildNodes = (
+  answers: Record<string, any>,
+  currentTierKey: TierKey
+) => {
+  const nodes: LadderNode[] = [];
+
+  TIER_ORDER.forEach((tierKey) => {
+    const tierLabel = TIER_LABELS[tierKey];
+    TIER_DATA[tierKey].forEach((pillar) => {
+      const sections: LadderSection[] = pillar.sections.map((section: any) => ({
+        title: section.title,
+        description: section.description,
+        questions: (section.questions || []).map((question: any) => ({
+          id: question.id,
+          label: question.text,
+          type: question.type || 'textarea',
+          tier: tierLabel,
+          placeholder: question.helperText || ''
+        })),
+        checklist: section.checklist
+      }));
+
+      const allQuestions = sections.flatMap((section) => section.questions);
+      const allChecklistItems = sections.flatMap((section) =>
+        section.checklist?.items || []
+      );
+
+      const answeredQuestions = allQuestions.filter((question) =>
+        isTextComplete(getAnswerValue(answers, tierKey, question.id))
+      ).length;
+
+      const answeredChecklist = allChecklistItems.filter((item) =>
+        isChecklistComplete(getAnswerValue(answers, tierKey, item.id))
+      ).length;
+
+      const total = allQuestions.length + allChecklistItems.length;
+      const completion = total ? (answeredQuestions + answeredChecklist) / total : 0;
+      const completed = total ? completion >= 1 : false;
+
+      const locked = TIER_ORDER.indexOf(tierKey) > TIER_ORDER.indexOf(currentTierKey);
+
+      nodes.push({
+        id: `${tierKey}-${pillar.pillarId}`,
+        title: PILLAR_LABELS[pillar.pillarId] || pillar.pillarTitle,
+        tierKey,
+        tierLabel,
+        sections,
+        completion,
+        completed,
+        locked,
+        active: false
+      });
+    });
+  });
+
+  const activeIndex = nodes.findIndex((node) => !node.completed && !node.locked);
+  if (activeIndex >= 0) {
+    nodes[activeIndex].active = true;
+  }
+
+  return nodes;
+};
+
+const buildPathD = (points: Array<{ x: number; y: number }>) => {
+  if (!points.length) return '';
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const midX = (prev.x + curr.x) / 2;
+    d += ` Q ${midX} ${prev.y} ${curr.x} ${curr.y}`;
+  }
+  return d;
+};
+
+const BrandLadder = ({
+  onNodeSelect,
+  onActiveNodeChange
+}: {
+  onNodeSelect?: (node: LadderNode) => void;
+  onActiveNodeChange?: (node: LadderNode) => void;
+}) => {
+  const answers = useQuestionnaireStore((state) => state.answers || {});
+  const currentTier = useQuestionnaireStore(
+    (state) => state.brandLevel?.level || state.userTier || 'Seed'
+  );
+  const currentTierKey = tierKeyFromLabel(currentTier);
+
+  const nodes = useMemo(
+    () => buildNodes(answers, currentTierKey),
+    [answers, currentTierKey]
+  );
+
+  useEffect(() => {
+    const activeNode = nodes.find((node) => node.active);
+    if (activeNode && onActiveNodeChange) {
+      onActiveNodeChange(activeNode);
+    }
+  }, [nodes, onActiveNodeChange]);
+
+  const nodeGap = 150;
+  const mapHeight = Math.max(1400, nodes.length * nodeGap + 240);
+
+  const points = nodes.map((node, index) => {
+    const x = 50 + Math.sin(index * 0.9) * 30;
+    const y = mapHeight - 140 - index * nodeGap;
+    return { x, y };
+  });
+
+  const pathD = buildPathD(points);
+
+  const tierAccent: Record<TierKey, string> = {
+    seed: 'bg-emerald-500 text-white',
+    sprout: 'bg-teal-500 text-white',
+    star: 'bg-purple-600 text-white',
+    superbrand: 'bg-amber-400 text-slate-900'
+  };
+
+  return (
+    <div
+      className="relative w-full rounded-3xl overflow-hidden border border-white/10 shadow-xl"
+      style={{
+        height: mapHeight,
+        background:
+          'linear-gradient(180deg, rgba(9,9,14,0.95) 0%, rgba(17,16,24,0.95) 22%, rgba(52,19,92,0.95) 25%, rgba(80,28,126,0.95) 48%, rgba(11,78,76,0.95) 52%, rgba(14,129,125,0.95) 72%, rgba(15,97,44,0.95) 76%, rgba(30,140,74,0.95) 100%)'
+      }}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_55%)]" />
+      <svg
+        className="absolute inset-0"
+        width="100%"
+        height={mapHeight}
+        viewBox={`0 0 100 ${mapHeight}`}
+        preserveAspectRatio="none"
+      >
+        <path
+          d={pathD}
+          fill="none"
+          stroke="rgba(255,255,255,0.7)"
+          strokeWidth="2"
+          strokeDasharray="10 12"
+        />
+      </svg>
+
+      {nodes.map((node, index) => {
+        const position = points[index];
+        const statusClass = node.locked
+          ? 'bg-slate-400/40 text-slate-200 border border-slate-300/40'
+          : node.completed
+            ? `${tierAccent[node.tierKey]} shadow-lg shadow-black/20`
+            : node.active
+              ? `${tierAccent[node.tierKey]} animate-pulse shadow-lg shadow-black/30`
+              : 'bg-white/90 text-slate-900 border border-white/70';
+
+        return (
+          <button
+            key={node.id}
+            type="button"
+            onClick={() => {
+              if (!node.locked && onNodeSelect) onNodeSelect(node);
+            }}
+            className={`absolute flex flex-col items-center gap-2 transition-transform duration-200 ${node.locked ? 'cursor-not-allowed' : 'hover:scale-105'}`}
+            style={{ left: `${position.x}%`, top: position.y, transform: 'translate(-50%, -50%)' }}
+          >
+            <div className={`h-12 w-12 rounded-full flex items-center justify-center ${statusClass}`}>
+              {node.locked ? <Lock className="h-5 w-5" /> : null}
+              {node.completed ? <Check className="h-6 w-6" /> : null}
+              {!node.locked && !node.completed ? <span className="h-3 w-3 rounded-full bg-white/80" /> : null}
+            </div>
+            <div className="text-xs font-semibold text-white/90 text-center w-32">
+              {node.title}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+export default BrandLadder;

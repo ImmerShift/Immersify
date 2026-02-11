@@ -11,22 +11,25 @@ const Strategy = () => {
   const strategy = useStore((state) => state.strategy || null);
   const answers = useStore((state) => state.answers || {});
   const apiKey = useStore((state) => state.apiKey || '');
+  const currentTier = useStore((state) => state.brandLevel?.level || state.userTier || 'Seed');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const brandName = answers.company_name || 'your brand';
+  const tierKey = typeof currentTier === 'string' ? currentTier.toLowerCase() : null;
+  const activeAnswers = tierKey && answers?.[tierKey] ? answers[tierKey] : answers;
+  const brandName = activeAnswers.company_name || answers.company_name || 'your brand';
   const insightCount = useMemo(() => {
-    return Object.values(answers).filter((value) => {
+    return Object.values(activeAnswers || {}).filter((value) => {
       if (typeof value === 'string') return value.trim().length > 0;
       return value !== null && value !== undefined;
     }).length;
-  }, [answers]);
+  }, [activeAnswers]);
 
   const handleGenerate = async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await generateStrategy(apiKey, brandName, answers);
+      const result = await generateStrategy(apiKey, brandName, answers, currentTier);
       updateStore({ strategy: result });
       toast.success("Strategy Generated Successfully!");
     } catch (err) {

@@ -13,7 +13,12 @@ const DEFAULT_STATE = {
   brandLevel: null,
   levelHistory: [],
   levelAuditLog: [],
-  permissionAuditLog: []
+  permissionAuditLog: [],
+  gamification: {
+    current_xp: 0,
+    current_streak: 0,
+    multiplier_active: 1
+  }
 };
 
 let storeState = null;

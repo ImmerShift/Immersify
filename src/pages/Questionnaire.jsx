@@ -1,14 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { Save, Image as ImageIcon, Loader2, Lock } from "lucide-react";
 import { Button } from '@/components/ui/button';
-import { getStore, updateStore, useStore } from '@/lib/store';
+import { getStore, setAnswer, updateStore, useStore } from '@/lib/store';
 import { toast } from 'sonner';
 import { cn, assessBrandLevel, getQuestionAccess, TIERS } from "@/lib/utils";
 import { getPermissionMatrix, getTierComparison } from "@/lib/accessControl";
 import { analyzeVisualConsistency } from '@/lib/gemini';
-import { SECTIONS } from '@/lib/constants';
+import { SEED_QUESTIONNAIRE } from '@/data/questionnaires/v3/seed';
+import { SPROUT_QUESTIONNAIRE } from '@/data/questionnaires/v3/sprout';
+import { STAR_QUESTIONNAIRE } from '@/data/questionnaires/v3/star';
+import { SUPERBRAND_QUESTIONNAIRE } from '@/data/questionnaires/v3/superbrand';
 import QuestionCard from '@/components/audit/QuestionCard';
 import ReportGenerator from '@/components/reports/ReportGenerator';
 
@@ -44,6 +47,69 @@ const TAB_LABELS = {
   security_trust: 'Security & Trust'
 };
 
+const PILLAR_KEY_BY_ID = {
+  1: 'brand_core',
+  2: 'visual_identity',
+  3: 'product_experience',
+  4: 'market_plan',
+  5: 'technology',
+  6: 'brand_activation',
+  7: 'team_branding',
+  8: 'security_trust'
+};
+
+const normalizeQuestionType = (type) => {
+  if (type === 'textarea') return 'textarea';
+  if (type === 'text') return 'text';
+  return 'text';
+};
+
+const buildV3Data = () => {
+  const tierData = [
+    { tier: 'Seed', data: SEED_QUESTIONNAIRE },
+    { tier: 'Sprout', data: SPROUT_QUESTIONNAIRE },
+    { tier: 'Star', data: STAR_QUESTIONNAIRE },
+    { tier: 'Superbrand', data: SUPERBRAND_QUESTIONNAIRE }
+  ];
+
+  const pillarsByKey = {};
+  const flatByKey = {};
+
+  TAB_ORDER.forEach((key) => {
+    pillarsByKey[key] = [];
+    flatByKey[key] = [];
+  });
+
+  tierData.forEach(({ tier, data }) => {
+    data.forEach((pillar) => {
+      const pillarKey = PILLAR_KEY_BY_ID[pillar.pillarId];
+      if (!pillarKey) return;
+      pillar.sections.forEach((section) => {
+        const mappedQuestions = (section.questions || []).map((question) => ({
+          id: question.id,
+          label: question.text,
+          subLabel: question.helperText,
+          placeholder: question.helperText || '',
+          type: normalizeQuestionType(question.type),
+          tier
+        }));
+
+        pillarsByKey[pillarKey].push({
+          title: section.title,
+          description: section.description,
+          questions: mappedQuestions,
+          checklist: section.checklist,
+          tier
+        });
+
+        flatByKey[pillarKey].push(...mappedQuestions);
+      });
+    });
+  });
+
+  return { pillarsByKey, flatByKey };
+};
+
 const Questionnaire = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -54,6 +120,7 @@ const Questionnaire = () => {
   const ratings = useStore((state) => state.ratings || {});
   const currentTier = useStore((state) => state.brandLevel?.level || state.userTier || 'Seed');
   const previousTierRef = useRef(currentTier);
+  const { pillarsByKey, flatByKey } = useMemo(() => buildV3Data(), []);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -149,7 +216,7 @@ const Questionnaire = () => {
     toast.success("Progress saved!");
   };
 
-  const tierComparison = getTierComparison(SECTIONS, currentTier);
+  const tierComparison = getTierComparison(flatByKey, currentTier);
   const higherTierEntries = Object.entries(tierComparison);
 
   return (
@@ -170,7 +237,7 @@ const Questionnaire = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           {TAB_ORDER.map((tab) => {
-            const tabTier = SECTIONS[tab]?.[0]?.tier || 'Seed';
+            const tabTier = flatByKey[tab]?.[0]?.tier || 'Seed';
             const locked = getQuestionAccess(tabTier, currentTier).isLocked;
             return (
               <TabsTrigger key={tab} value={tab}>
@@ -183,19 +250,113 @@ const Questionnaire = () => {
           })}
         </TabsList>
 
-        <TabsContent value="brand_core" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.brand_core.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
-          </div>
-        </TabsContent>
+        {TAB_ORDER.filter((tab) => tab !== 'visual_identity').map((tab) => (
+          <TabsContent key={tab} value={tab} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="space-y-8">
+              {pillarsByKey[tab].map((section, sectionIndex) => {
+                const access = getQuestionAccess(section.tier, currentTier);
+                const locked = access.isLocked;
+                return (
+                  <div key={`${tab}-${sectionIndex}`} className="space-y-4">
+                    <div className="rounded-xl border border-slate-100 bg-white p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="text-lg font-semibold text-slate-900">{section.title}</div>
+                        {locked ? (
+                          <span className="inline-flex items-center rounded-sm bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700 uppercase tracking-wide">Locked</span>
+                        ) : null}
+                      </div>
+                      {section.description ? (
+                        <p className="text-sm text-slate-500 mt-1">{section.description}</p>
+                      ) : null}
+                    </div>
+
+                    {section.questions.map((question) => (
+                      <QuestionCard key={question.id} question={question} userTier={currentTier} />
+                    ))}
+
+                    {section.checklist ? (
+                      <div className={cn("rounded-xl border border-slate-100 bg-white p-5 space-y-4", access.blurAmount)}>
+                        <div>
+                          <div className="text-base font-semibold text-slate-900">{section.checklist.title}</div>
+                          <p className="text-sm text-slate-500">{section.checklist.description}</p>
+                        </div>
+                        <div className={cn("space-y-3", locked ? "opacity-60 pointer-events-none" : "")}>
+                          {section.checklist.items.map((item) => {
+                            const checked = Boolean(answers[item.id]);
+                            return (
+                              <label key={item.id} className="flex items-start gap-3 text-sm text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                                  checked={checked}
+                                  onChange={(e) => setAnswer(item.id, e.target.checked)}
+                                  disabled={locked}
+                                />
+                                <span>{item.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </TabsContent>
+        ))}
 
         <TabsContent value="visual_identity" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.visual_identity.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
+          <div className="space-y-8">
+            {pillarsByKey.visual_identity.map((section, sectionIndex) => {
+              const access = getQuestionAccess(section.tier, currentTier);
+              const locked = access.isLocked;
+              return (
+                <div key={`visual-${sectionIndex}`} className="space-y-4">
+                  <div className="rounded-xl border border-slate-100 bg-white p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-lg font-semibold text-slate-900">{section.title}</div>
+                      {locked ? (
+                        <span className="inline-flex items-center rounded-sm bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700 uppercase tracking-wide">Locked</span>
+                      ) : null}
+                    </div>
+                    {section.description ? (
+                      <p className="text-sm text-slate-500 mt-1">{section.description}</p>
+                    ) : null}
+                  </div>
+
+                  {section.questions.map((question) => (
+                    <QuestionCard key={question.id} question={question} userTier={currentTier} />
+                  ))}
+
+                  {section.checklist ? (
+                    <div className={cn("rounded-xl border border-slate-100 bg-white p-5 space-y-4", access.blurAmount)}>
+                      <div>
+                        <div className="text-base font-semibold text-slate-900">{section.checklist.title}</div>
+                        <p className="text-sm text-slate-500">{section.checklist.description}</p>
+                      </div>
+                      <div className={cn("space-y-3", locked ? "opacity-60 pointer-events-none" : "")}>
+                        {section.checklist.items.map((item) => {
+                          const checked = Boolean(answers[item.id]);
+                          return (
+                            <label key={item.id} className="flex items-start gap-3 text-sm text-slate-700">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                                checked={checked}
+                                onChange={(e) => setAnswer(item.id, e.target.checked)}
+                                disabled={locked}
+                              />
+                              <span>{item.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-8 p-6 bg-indigo-50 rounded-xl border border-indigo-100">
@@ -241,54 +402,6 @@ const Questionnaire = () => {
                 )}
               </Button>
             )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="product_experience" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.product_experience.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="market_plan" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.market_plan.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="technology" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.technology.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="brand_activation" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.brand_activation.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="team_branding" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.team_branding.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="security_trust" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="space-y-4">
-            {SECTIONS.security_trust.map((q) => (
-              <QuestionCard key={q.id} question={q} userTier={currentTier} />
-            ))}
           </div>
         </TabsContent>
       </Tabs>

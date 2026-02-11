@@ -1,6 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { VISUAL_ANALYSIS_PROMPT, SINGLE_INPUT_PROMPT } from './prompts';
+import { buildPromptText } from '@/lib/promptLibrary';
 import { SECTIONS } from '@/lib/constants';
+import { SEED_QUESTIONNAIRE } from '@/data/questionnaires/v3/seed';
+import { SPROUT_QUESTIONNAIRE } from '@/data/questionnaires/v3/sprout';
+import { STAR_QUESTIONNAIRE } from '@/data/questionnaires/v3/star';
+import { SUPERBRAND_QUESTIONNAIRE } from '@/data/questionnaires/v3/superbrand';
 import { getStore } from '@/lib/store';
 
 const resolveApiKey = (apiKey) => apiKey || getStore().apiKey || '';
@@ -21,7 +26,125 @@ const formatAnswerValue = (value) => {
   return value.trim();
 };
 
-export const buildContextString = (answers) => {
+const normalizeTierKey = (tier) => {
+  if (!tier || typeof tier !== 'string') return null;
+  const key = tier.toLowerCase();
+  if (key === 'seed' || key === 'sprout' || key === 'star' || key === 'superbrand') return key;
+  return null;
+};
+
+const inferPillarId = (questionId) => {
+  if (!questionId || typeof questionId !== 'string') return null;
+  const match = questionId.match(/_p(\d+)_/i) || questionId.match(/^p(\d+)_/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isNaN(value) ? null : value;
+};
+
+const TIER_WATERFALL = ['seed', 'sprout', 'star', 'superbrand'];
+
+const V3_QUESTIONNAIRES = {
+  seed: SEED_QUESTIONNAIRE,
+  sprout: SPROUT_QUESTIONNAIRE,
+  star: STAR_QUESTIONNAIRE,
+  superbrand: SUPERBRAND_QUESTIONNAIRE
+};
+
+const buildV3Maps = () => {
+  const maps = {};
+  Object.entries(V3_QUESTIONNAIRES).forEach(([tier, data]) => {
+    const questions = [];
+    const checklistItems = [];
+    data.forEach((pillar) => {
+      pillar.sections.forEach((section) => {
+        (section.questions || []).forEach((question) => {
+          questions.push({
+            id: question.id,
+            label: question.text || question.helperText || question.id
+          });
+        });
+        if (section.checklist?.items?.length) {
+          section.checklist.items.forEach((item) => {
+            checklistItems.push({
+              id: item.id,
+              label: item.label || item.id
+            });
+          });
+        }
+      });
+    });
+    maps[tier] = { questions, checklistItems };
+  });
+  return maps;
+};
+
+const V3_MAPS = buildV3Maps();
+
+const formatV3Value = (value) => {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.filter(Boolean).join(', ');
+  if (value && typeof value === 'object') return JSON.stringify(value);
+  return formatAnswerValue(value);
+};
+
+const buildV3ContextString = (tierKey, tierAnswers) => {
+  const entries = [];
+  const map = V3_MAPS[tierKey];
+  if (!map) return '';
+
+  const questionLines = [];
+  map.questions.forEach((question) => {
+    const value = tierAnswers?.[question.id];
+    if (value === undefined || value === null || value === '') return;
+    questionLines.push(`[${question.label}]: "${formatV3Value(value)}"`);
+  });
+  if (questionLines.length) {
+    entries.push(`--- ${tierKey.toUpperCase()} QUESTIONS ---`);
+    entries.push(...questionLines);
+  }
+
+  const checklistLines = [];
+  map.checklistItems.forEach((item) => {
+    const value = tierAnswers?.[item.id];
+    const formatted = formatV3Value(Boolean(value));
+    checklistLines.push(`[Checklist] ${item.label}: ${formatted}`);
+  });
+  if (checklistLines.length) {
+    entries.push(`--- ${tierKey.toUpperCase()} CHECKLIST ---`);
+    entries.push(...checklistLines);
+  }
+
+  const extras = Object.entries(tierAnswers || {}).filter(([key]) => (
+    !map.questions.find((q) => q.id === key) &&
+    !map.checklistItems.find((item) => item.id === key)
+  ));
+  if (extras.length) {
+    entries.push(`--- ${tierKey.toUpperCase()} OTHER ---`);
+    extras.forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      entries.push(`[${key}]: "${formatV3Value(value)}"`);
+    });
+  }
+
+  return entries.join('\n');
+};
+
+const buildV3CumulativeContextString = (activeTierKey, answers) => {
+  const entries = [];
+  const activeIndex = TIER_WATERFALL.indexOf(activeTierKey);
+  if (activeIndex === -1) return '';
+
+  TIER_WATERFALL.slice(0, activeIndex + 1).forEach((tierKey) => {
+    const tierAnswers = answers?.[tierKey];
+    if (!tierAnswers || typeof tierAnswers !== 'object') return;
+    const tierContext = buildV3ContextString(tierKey, tierAnswers);
+    if (tierContext) entries.push(tierContext);
+  });
+
+  return entries.join('\n');
+};
+
+const buildV2ContextString = (answers) => {
   const entries = [];
   Object.entries(SECTIONS).forEach(([sectionKey, questions]) => {
     const sectionLines = [];
@@ -40,6 +163,15 @@ export const buildContextString = (answers) => {
   return entries.join('\n');
 };
 
+export const buildContextString = (answers, activeTier) => {
+  const tierKey = normalizeTierKey(activeTier);
+  if (tierKey && answers && typeof answers === 'object') {
+    const v3Context = buildV3CumulativeContextString(tierKey, answers);
+    if (v3Context) return v3Context;
+  }
+  return buildV2ContextString(answers || {});
+};
+
 const buildFallback = () => {
   const pillars = Object.keys(SECTIONS).reduce((acc, key) => {
     acc[key] = { score: 50, advice: "Provide more detail to refine guidance." };
@@ -52,7 +184,7 @@ const buildFallback = () => {
   };
 };
 
-export const generateStrategy = async (apiKey, brandName, answers) => {
+export const generateStrategy = async (apiKey, brandName, answers, activeTier) => {
   const resolvedKey = resolveApiKey(apiKey);
   if (!resolvedKey) throw new Error("Please enter your Gemini API Key in Settings.");
   if (/demo|test|dummy/i.test(resolvedKey)) return buildFallback();
@@ -62,7 +194,7 @@ export const generateStrategy = async (apiKey, brandName, answers) => {
 
   const systemInstruction = "You are an expert Brand Strategist. Analyze the following brand audit data.";
   const brandContext = `Brand Name: ${brandName || 'Unknown'}`;
-  const dataContext = buildContextString(answers || {});
+  const dataContext = buildContextString(answers || {}, activeTier);
   const outputRequirement = "Return a JSON object strictly following this structure: { analysis: string, pillars: { [key]: { score: number, advice: string } }, creative_idea: string }. Do not use Markdown formatting.";
   const prompt = `${systemInstruction}\n${brandContext}\n${dataContext}\n${outputRequirement}`;
 
@@ -83,15 +215,17 @@ export const getTieredMentorship = async (questionData, userText, currentTier) =
 
   const genAI = new GoogleGenerativeAI(resolvedKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-  const tier = MENTOR_PERSONAS[currentTier] ? currentTier : 'Seed';
-
-  const prompt = [
-    MENTOR_PERSONAS[tier],
+  const tierLabel = MENTOR_PERSONAS[currentTier] ? currentTier : 'Seed';
+  const tierKey = normalizeTierKey(tierLabel) || 'seed';
+  const pillarId = questionData?.pillarId || questionData?.pillar_id || inferPillarId(questionData?.id);
+  const libraryPrompt = buildPromptText(pillarId, tierKey, questionData?.label || '', userText);
+  const prompt = libraryPrompt || [
+    MENTOR_PERSONAS[tierLabel],
     "You are analyzing a response within the Immersive Brand Experience framework.",
     `Question Context: ${questionData?.label || ''}`,
     questionData?.aiTag ? `AI Tag: ${questionData.aiTag}` : '',
     `User Answer: ${userText}`,
-    `Instruction: Explain the branding concept of this question for a ${tier} brand, critique their specific answer for blind spots, and provide one Pro-Tip to help them evolve to the next tier.`,
+    `Instruction: Explain the branding concept of this question for a ${tierLabel} brand, critique their specific answer for blind spots, and provide one Pro-Tip to help them evolve to the next tier.`,
     "Return only JSON in this exact shape: { concept: string, critique: string, proTip: string, strengthScore: number }."
   ].filter(Boolean).join('\n');
 

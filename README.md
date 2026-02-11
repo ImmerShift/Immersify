@@ -1,11 +1,15 @@
 # Immersify v2.0 - Serverless Edition
 
-This is the fully rebuilt Immersify application. It is designed to be **Serverless**, meaning it runs entirely in the browser.
+This is the fully rebuilt Immersify application. It is designed to be **Serverless**, meaning it runs entirely in the browser, with a cinematic, game-like dashboard experience.
 
 ## 🚀 Key Features
 - **Client-Side AI**: Connects directly to Google Gemini (you need to enter your API Key in Settings).
 - **Local Storage**: Saves your brand audit and strategy to your browser (no database required).
 - **Instant Deployment**: Can be hosted on GitHub Pages, Netlify, or Vercel.
+- **Immersive Map UI**: A 3D glass staircase that visualizes your brand journey as a winding path.
+- **Mission Control HUD**: A glassmorphic right-side panel with Brand Score, directive CTA, and asset grid.
+- **Active Step Guidance**: The active step auto-highlights and syncs with the audit drawer.
+- **Cinematic Atmosphere**: Neon spine glow, depth layering, and animated hero presence.
 
 ## 🛠️ How to Run Locally
 1. **Install Node.js**: You MUST have Node.js installed. Download it from [nodejs.org](https://nodejs.org/).

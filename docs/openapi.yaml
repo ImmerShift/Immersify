@@ -1,0 +1,186 @@
+openapi: 3.0.3
+info:
+  title: Immersify MVP API
+  version: 0.1.0
+servers:
+  - url: https://api.immersify.app
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    WorkbookSubmitRequest:
+      type: object
+      required: [project_id, pillar_id, question_id, answer_text, tier_context]
+      properties:
+        project_id: { type: string, format: uuid }
+        pillar_id: { type: integer }
+        question_id: { type: string }
+        answer_text: { type: string }
+        tier_context: { type: string, enum: [seed, sprout, star, superbrand] }
+    AIFeedback:
+      type: object
+      properties:
+        concept: { type: string }
+        critique: { type: string }
+        proTip: { type: string }
+        strengthScore: { type: integer }
+    GamificationDelta:
+      type: object
+      properties:
+        xp_awarded: { type: integer }
+        current_xp: { type: integer }
+        message: { type: string }
+    WorkbookSubmitResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        response_id: { type: string, format: uuid }
+        verification_status: { type: string, enum: [verified, failed, pending] }
+        ai_feedback: { $ref: '#/components/schemas/AIFeedback' }
+        gamification: { $ref: '#/components/schemas/GamificationDelta' }
+    UploadEvidenceResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        asset_url: { type: string, format: uri }
+        verification_status: { type: string, enum: [verified, failed, pending] }
+        gamification: { $ref: '#/components/schemas/GamificationDelta' }
+    GamificationState:
+      type: object
+      properties:
+        current_tier: { type: string, enum: [seed, sprout, star, superbrand] }
+        current_xp: { type: integer }
+        next_tier_threshold: { type: integer }
+        progress_percentage: { type: number }
+        current_streak: { type: integer }
+        multiplier_active: { type: number }
+        recent_achievements:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              description: { type: string }
+              unlocked_at: { type: string, format: date-time }
+    GamificationResponse:
+      type: object
+      properties:
+        gamification: { $ref: '#/components/schemas/GamificationState' }
+    GenerateStrategyRequest:
+      type: object
+      required: [generation_mode]
+      properties:
+        generation_mode: { type: string, enum: [from_audit, standalone_brief] }
+        include_copywriting_suite: { type: boolean }
+    GenerateStrategyResponse:
+      type: object
+      properties:
+        message: { type: string }
+        job_id: { type: string }
+        status_url: { type: string }
+    ExportResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        format: { type: string, enum: [pdf, docx, txt] }
+        download_url: { type: string, format: uri }
+        expires_in: { type: integer }
+        message: { type: string }
+paths:
+  /api/workbook/submit:
+    post:
+      summary: Save answer, trigger AI, update score, award XP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkbookSubmitRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkbookSubmitResponse' }
+  /api/workbook/upload-evidence:
+    put:
+      summary: Upload evidence for verification
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, project_id, pillar_id]
+              properties:
+                file: { type: string, format: binary }
+                project_id: { type: string, format: uuid }
+                pillar_id: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadEvidenceResponse' }
+  /api/users/gamification:
+    get:
+      summary: Fetch gamification state
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GamificationResponse' }
+  /api/projects/{id}/generate-strategy:
+    post:
+      summary: Trigger async strategy generation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenerateStrategyRequest' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerateStrategyResponse' }
+  /api/projects/jobs/{job_id}:
+    get:
+      summary: Poll strategy generation job status
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /api/projects/{id}/export:
+    get:
+      summary: Generate export and return signed URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: format
+          in: query
+          required: true
+          schema: { type: string, enum: [pdf, docx, txt] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExportResponse' }
